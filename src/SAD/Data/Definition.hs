@@ -18,7 +18,7 @@ data DefEntry = DE {
 
 {- yields information as to what can be unfolded -}
 isDefinition :: DefEntry -> Bool
-isDefinition = (==) Definition . kind
+isDefinition entry = Definition == (kind entry)
 
 {- storage of definitions by term id -}
 type Definitions = IntMap DefEntry
