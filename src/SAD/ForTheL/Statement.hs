@@ -4,12 +4,15 @@ Authors: Andrei Paskevich (2001 - 2008), Steffen Frerix (2017 - 2018)
 Syntax of ForThel statements.
 -}
 
+{-# OPTIONS_GHC -Wall #-}
 
 
 module SAD.ForTheL.Statement (
   statement,
   var, sVar, sTerm,
   anotion, dig, selection, setNotion, functionNotion) where
+
+import Prelude hiding (and, or)
 
 import SAD.ForTheL.Base
 import SAD.ForTheL.Reports (markupToken, markupTokenOf)
@@ -18,21 +21,18 @@ import SAD.Parser.Base
 import SAD.Parser.Combinators
 import SAD.Parser.Primitives
 
-import SAD.Parser.Token
-
 import SAD.Data.Formula
 import SAD.Core.SourcePos
 import qualified SAD.Data.Text.Decl as Decl
 
-import qualified Control.Monad.State.Class as MS
 import Data.Function ((&))
+import Control.Monad (ap, liftM2, guard)
 
 
-import Control.Monad
-
-
+statement :: Parser FState Formula
 statement = headed <|> chained
 
+headed :: Parser FState Formula
 headed = quStatem <|> ifThenStatem <|> wrongStatem
   where
     quStatem = liftM2 ($) quChain statement
@@ -43,7 +43,7 @@ headed = quStatem <|> ifThenStatem <|> wrongStatem
       mapM_ wdToken ["it", "is", "wrong", "that"] >> fmap Not statement
 
 
-
+chained :: Parser FState Formula
 chained = label "chained statement" $ andOr <|> neitherNor >>= chainEnd
   where
     andOr = atomic >>= \f -> opt f (andChain f <|> orChain f)
@@ -53,7 +53,7 @@ chained = label "chained statement" $ andOr <|> neitherNor >>= chainEnd
     -- and/or wdToken binds to this statement or to an ambient one
     orChain f = fmap (foldl Or f) $ or >> atomic `sepBy`or
     and = markupToken Reports.conjunctiveAnd "and"
-    or = markupToken Reports.or "or"
+    or  = markupToken Reports.or "or"
 
     neitherNor = do
       markupToken Reports.neitherNor "neither"; f <- atomic
@@ -61,7 +61,7 @@ chained = label "chained statement" $ andOr <|> neitherNor >>= chainEnd
       fs <- atomic `sepBy` markupToken Reports.neitherNor "nor"
       return $ foldl1 And $ map Not (f:fs)
 
-
+chainEnd :: Formula -> Parser FState Formula
 chainEnd f = optLL1 f $ and_st <|> or_st <|> iff_st <|> where_st
   where
     and_st = fmap (And f) $ markupToken Reports.conjunctiveAnd "and" >> headed
@@ -71,18 +71,20 @@ chainEnd f = optLL1 f $ and_st <|> or_st <|> iff_st <|> where_st
       markupTokenOf Reports.whenWhere ["when", "where"]; y <- statement
       return $ foldr zAll (Imp y f) (declNames [] y)
 
-
+atomic :: Parser FState Formula
 atomic = label "atomic statement"
   thereIs <|> (simple </> (wehve >> smForm <|> thesis))
   where
     wehve = optLL1 () $ wdToken "we" >> wdToken "have"
 
+thesis :: Parser st Formula
 thesis = art >> (thes <|> contrary <|> contradiction)
   where
     thes = wdToken "thesis" >> return zThesis
     contrary = wdToken "contrary" >> return (Not zThesis)
     contradiction = wdToken "contradiction" >> return Bot
 
+thereIs :: Parser FState Formula
 thereIs = label "there-is statement" $ there >> (noNotion -|- notions)
   where
     noNotion = label "no-notion" $ do
@@ -92,7 +94,7 @@ thereIs = label "there-is statement" $ there >> (noNotion -|- notions)
 
 
 
-
+simple :: Parser FState Formula
 simple = label "simple statement" $ do
   (q, ts) <- terms; p <- conjChain doesPredicate;
   q' <- optLL1 id quChain;
@@ -100,28 +102,29 @@ simple = label "simple statement" $ do
   -- example: x = y *for every real number x*.
   q . q' <$> dig p ts
 
+smForm :: Parser FState Formula
 smForm = liftM2 (flip ($)) (sForm -|- classEq) $ optLL1 id quChain
 
 --- predicates
 
-
+doesPredicate :: Parser FState Formula
 doesPredicate = label "does predicate" $
   (does >> (doP -|- multiDoP)) <|> hasP <|> isChain
   where
     doP = predicate primVer
     multiDoP = mPredicate primMultiVer
     hasP = has >> hasPredicate
-    isChain = is  >> conjChain (isAPredicat -|- isPredicate)
+    isChain = is  >> conjChain (isAPredicate -|- isPredicate)
 
-
+isPredicate :: Parser FState Formula
 isPredicate = label "is predicate" $
   pAdj -|- pMultiAdj -|- (with >> hasPredicate)
   where
     pAdj = predicate primAdj
     pMultiAdj = mPredicate primMultiAdj
 
-
-isAPredicat = label "isA predicate" $ notNtn <|> ntn
+isAPredicate :: Parser FState Formula
+isAPredicate = label "isA predicate" $ notNtn <|> ntn
   -- Unlike the langugae description, we distinguish positive and negative
   -- rather than notions and fixed terms
   where
@@ -130,6 +133,7 @@ isAPredicat = label "isA predicate" $ notNtn <|> ntn
       wdToken "not"; (q, f) <- anotion; let unfinished = dig f [zHole]
       optLLx (q $ Not f) $ fmap (q. Tag Dig . Not) unfinished
 
+hasPredicate :: Parser FState Formula
 hasPredicate = label "has predicate" $ noPossessive <|> possessive
   where
     possessive = art >> common <|> unary
@@ -149,11 +153,17 @@ hasPredicate = label "has predicate" $ noPossessive <|> possessive
 
 --- predicate parsing
 
+predicate :: (Parser FState (Formula -> Formula, Formula)
+          -> Parser st (Formula -> a, Formula))
+          -> Parser st a
 predicate p = (wdToken "not" >> negative) <|> positive
   where
     positive = do (q, f) <- p term; return $ q . Tag Dig $ f
     negative = do (q, f) <- p term; return $ q . Tag Dig . Not $ f
 
+mPredicate :: (Parser FState (Formula -> Formula, Formula)
+           -> Parser st (Formula -> a, Formula))
+           -> Parser st a
 mPredicate p = (wdToken "not" >> mNegative) <|> mPositive
   where
     mPositive = (wdToken "pairwise" >> pPositive) <|> sPositive
@@ -170,6 +180,7 @@ mPredicate p = (wdToken "not" >> mNegative) <|> mPositive
 
 --- notions
 
+basentn :: Parser FState (Formula -> Formula, Formula, [VarName])
 basentn = fmap digadd $ cm <|> symEqnt <|> (set </> primNtn term)
   where
     cm = wdToken "common" >> primCmNtn term terms
@@ -177,9 +188,10 @@ basentn = fmap digadd $ cm <|> symEqnt <|> (set </> primNtn term)
       t <- lexicalCheck isTrm sTerm
       v <- hidden; return (id, zEqu zHole t, [v])
 
+symNotion :: Parser FState (Formula -> Formula, Formula, [(String, SourcePos)])
 symNotion = (paren (primSnt sTerm) </> primTvr) >>= (digntn . digadd)
 
-
+gnotion :: Parser FState (a, Formula, c) -> Parser FState Formula -> Parser FState (a, Formula, c)
 gnotion nt ra = do
   ls <- fmap reverse la; (q, f, vs) <- nt;
   rs <- opt [] $ fmap (:[]) $ ra <|> rc
@@ -191,29 +203,37 @@ gnotion nt ra = do
     rc = (that >> conjChain doesPredicate <?> "that clause") <|>
       conjChain isPredicate
 
-
+anotion :: Parser FState (Formula -> Formula, Formula)
 anotion = label "notion (at most one name)" $
   art >> gnotion basentn rat >>= single >>= hol
   where
     hol (q, f, v) = return (q, subst zHole (fst v) f)
     rat = fmap (Tag Dig) stattr
 
+notion :: Parser FState (Formula -> Formula, Formula, [(String, SourcePos)])
 notion = label "notion" $ gnotion (basentn </> symNotion) stattr >>= digntn
 
+possess :: Parser FState (Formula -> Formula, Formula, [(String, SourcePos)])
 possess = label "possesive notion" $ gnotion (primOfNtn term) stattr >>= digntn
 
-
+stattr :: Parser FState Formula
 stattr = label "such-that attribute" $ such >> that >> statement
 
+digadd :: (a, Formula, c) -> (a, Formula, c)
 digadd (q, f, v) = (q, Tag Dig f, v)
 
+digntn :: Monad m
+       => (a, Formula, [(String, SourcePos)])
+       -> m (a, Formula, [(String, SourcePos)])
 digntn (q, f, v) = dig f (map pVar v) >>= \ g -> return (q, g, v)
 
+single :: Monad m => (a, b, [c]) -> m (a, b, c)
 single (q, f, [v]) = return (q, f, v)
 single _ = fail "inadmissible multinamed notion"
 
 --- terms
 
+terms :: Parser FState (Formula -> Formula, [Formula])
 terms = label "terms" $
   fmap (foldl1 fld) $ m_term `sepBy` comma
   where
@@ -222,12 +242,13 @@ terms = label "terms" $
 
     fld (q, ts) (r, ss) = (q . r, ts ++ ss)
 
+term :: Parser FState (Formula -> Formula, Formula)
 term = label "a term" $ (quNotion >>= m2s) -|- definiteTerm
   where
     m2s (q, [t]) = return (q, t)
     m2s _ = fail "inadmissible multinamed notion"
 
-
+quNotion :: Parser FState (Formula -> Formula, [Formula])
 quNotion = label "quantified notion" $
   paren (fa <|> ex <|> no)
   where
@@ -246,21 +267,23 @@ quNotion = label "quantified notion" $
       vDecl<- mapM makeDecl v
       return (q . flip (foldr dAll) vDecl . blImp f . Not, map pVar v)
 
-
+definiteTerm :: Parser FState (Formula -> Formula, Formula)
 definiteTerm = label "definiteTerm" $  symbolicTerm -|- definiteNoun
   where
     definiteNoun = label "definiteNoun" $ paren (art >> primFun term)
 
-plainTerm = symbolicTerm -|- plainDefiniteNoun
-  where
-    plainDefiniteNoun = paren (art >> primFun plainTerm)
+-- plainTerm :: Parser FState (Formula -> Formula, Formula)
+-- plainTerm = symbolicTerm -|- plainDefiniteNoun
+--   where
+--     plainDefiniteNoun = paren (art >> primFun plainTerm)
 
+symbolicTerm :: Parser FState (a -> a, Formula)
 symbolicTerm = fmap ((,) id) sTerm
 
 
 --- symbolic notation
 
-
+sForm :: Parser FState Formula
 sForm  = sIff
   where
     sIff = sImp >>= binF Iff (symbol "<=>" >> sImp)
@@ -278,7 +301,7 @@ sForm  = sIff
 
     binF op p f = optLL1 f $ fmap (op f) p
 
-
+sAtom :: Parser FState Formula
 sAtom = sRelation -|- expar statement
   where
     sRelation = sChain </> primCpr sTerm
@@ -298,7 +321,7 @@ sAtom = sRelation -|- expar statement
 
     sTs = sTerm `sepBy` wdToken ","
 
-
+sTerm :: Parser FState Formula
 sTerm = iTerm
   where
     iTerm = lTerm >>= iTl
@@ -311,10 +334,12 @@ sTerm = iTerm
 
     cTerm = label "symbolic term" $ sVar -|- expar sTerm -|- primCfn sTerm
 
+sVar :: Parser st Formula
 sVar = fmap pVar var
 
 -- class term equations
 
+classEq :: Parser FState Formula
 classEq = twoClassTerms </> oneClassTerm
   where
     twoClassTerms = do
@@ -339,7 +364,7 @@ classEq = twoClassTerms </> oneClassTerm
 
 
 -- selection
-
+selection :: Parser FState Formula
 selection = fmap (foldl1 And) $ (art >> takeLongest namedNotion) `sepByLL1` comma
   where
     namedNotion = label "named notion" $ do
@@ -350,10 +375,12 @@ selection = fmap (foldl1 And) $ (art >> takeLongest namedNotion) `sepByLL1` comm
 -- function and set syntax
 
 -- -- sets
+setNotion :: Parser FState Formula
 setNotion = do
   v <- after var (smTokenOf "="); (_, f, _) <- set
   dig (Tag Dig f) [pVar v]
 
+set :: Parser FState MNotion
 set = label "set definition" $ symbSet <|> setOf
   where
     setOf = do
@@ -368,7 +395,7 @@ set = label "set definition" $ symbSet <|> setOf
     setForm dcl = let nm = (Decl.name dcl, Decl.position dcl) in
       And (zSet zHole) . dAll dcl . Iff (zElem (pVar nm) zHole)
 
-
+symbSetNotation :: Parser FState (Formula -> Formula, (String, SourcePos))
 symbSetNotation = cndSet </> finSet
   where
     finSet = exbrc $ do
@@ -383,7 +410,7 @@ symbSetNotation = cndSet </> finSet
     mbEqu _ tr Var{trName = v} = subst tr v
     mbEqu vs tr t = \st -> foldr mbdExi (st `And` zEqu tr t) vs
 
-
+sepFrom :: Parser FState (Formula -> Formula, Formula -> Formula, Formula)
 sepFrom = ntnSep -|- setSep -|- noSep
   where
     ntnSep = do
@@ -395,12 +422,14 @@ sepFrom = ntnSep -|- setSep -|- noSep
     noSep  = do
       t <- sTerm; return (Tag Replacement, const Top, t)
 
+elementCnd :: Parser FState (Formula -> Formula)
 elementCnd = setTerm </> fmap fst symbSetNotation
   where
     setTerm = sTerm >>= return . flip zElem
 
 -- -- functions
 
+functionNotion :: Parser FState Formula
 functionNotion = liftM2 (&) sVar $ wordFun <|> (smTokenOf "=" >> lambda)
   where
   wordFun = do
@@ -410,8 +439,10 @@ functionNotion = liftM2 (&) sVar $ wordFun <|> (smTokenOf "=" >> lambda)
     let body f = foldr dAll (Imp (t `zElem` zDom f) $ def $ zApp f t) vsDecl
     return $ \f -> zFun f `And` Tag Domain (dom f) `And` body f
 
+lambdaBody :: FTL (Formula -> Formula)
 lambdaBody = label "function definition" $ paren $ cases <|> chooseInTerm
 
+cases :: Parser FState (Formula -> Formula)
 cases = do
   cas <- ld_case `sepByLL1` smTokenOf ","
   return $ \fx -> foldr1 And $ map ((&) fx) cas
@@ -420,9 +451,10 @@ cases = do
       optLL1 () $ wdToken "case"; condition <- statement; arrow
       fmap ((.) $ Tag Condition . Imp condition) chooseInTerm
 
+chooseInTerm :: Parser FState (Formula -> Formula)
 chooseInTerm = do
   chs <- optLL1 [] $ after (ld_choice `sepByLL1` smTokenOf ",") (wdToken "in")
-  f   <- term -|- defTerm; return $ flip (foldr ($)) chs . f
+  f   <- term' -|- defTerm; return $ flip (foldr ($)) chs . f
   where
     ld_choice = chc <|> def
     chc = do
@@ -430,30 +462,32 @@ chooseInTerm = do
       return $ flip (foldr dExi) vs . And (q f)
     def = do
       wdToken "define"; x <- var; xDecl <- makeDecl x; smTokenOf "="
-      ap <- ld_set <|> lambda
-      return $ dExi xDecl . And (Tag Defined $ ap $ pVar x)
+      app <- ld_set <|> lambda
+      return $ dExi xDecl . And (Tag Defined $ app $ pVar x)
 
-    term = fmap ((.) (Tag Evaluation) . flip zEqu) sTerm
+    term' = fmap ((.) (Tag Evaluation) . flip zEqu) sTerm
     defTerm = do
-      ap <- ld_set <|> lambda; h <- hidden; let hv = pVar h
+      app <- ld_set <|> lambda; h <- hidden; let hv = pVar h
       hDecl <- makeDecl h;
       return $ \fx -> dExi hDecl $
-        And (Tag Defined $ ap hv) (Tag Evaluation $ zEqu fx hv)
+        And (Tag Defined $ app hv) (Tag Evaluation $ zEqu fx hv)
 
     ld_set = do (_, t, _) <- set; return $ flip substHole t
 
-
+lambda :: Parser FState (Formula -> Formula)
 lambda = do
   (t, df_head, dom) <- ld_head; vs <- freeVars t; df <- addDecl vs lambdaBody
   return $ \f -> zFun f `And` Tag Domain (dom f) `And` (df_head f $ df $ zApp f t)
   where
     ld_head = finalDot $ smTokenOf "\\" >> lambdaIn
 
+pair :: Parser st Formula
 pair = sVar </> pr
   where
     pr = do [l,r] <- smPatt pair pairPattern; return $ zPair l r
     pairPattern = [Sm "(", Vr, Sm ",", Vr, Sm ")"]
 
+lambdaIn :: Parser FState (Formula, Formula -> Formula -> Formula, Formula -> Formula)
 lambdaIn = do
   t <- pair; vs <- freeVarPositions t; vsDecl <- mapM makeDecl vs
   wdToken "in"; dom <- ld_dom;
@@ -464,16 +498,19 @@ lambdaIn = do
     trm = do
       t <- sTerm; return $ \f _ _ -> zDom f `zEqu` t
     setTrm = do
-      (ap, _) <- symbSetNotation
-      return $ \f t -> foldr dAll (Iff (t `zElem` zDom f) (ap t))
+      (app, _) <- symbSetNotation
+      return $ \f t -> foldr dAll (Iff (t `zElem` zDom f) (app t))
 
 ---- chain tools
 
+multExi :: [(a -> Formula, a, [Decl.Decl])] -> Formula
 multExi ((q, f, vs):ns) = foldr mbdExi (q f `blAnd` multExi ns) vs
 multExi [] = Top
 
+conjChain :: Parser st Formula -> Parser st Formula
 conjChain = fmap (foldl1 And) . flip sepBy (wdToken "and")
 
+quChain :: Parser FState (Formula -> Formula)
 quChain = fmap (foldl fld id) $ wdToken "for" >> quNotion `sepByLL1` comma
 -- we can use LL1 here, since there must always follow a parser belonging to the
 -- same non-terminal
@@ -483,26 +520,35 @@ quChain = fmap (foldl fld id) $ wdToken "for" >> quNotion `sepByLL1` comma
 
 -- Digger
 
-dig f [_] | occursS f = fail "too few subjects for an m-predicate"
-dig f ts = return (dive f)
+dig :: Monad m => Formula -> [Formula] -> m Formula
+dig formula [_] | occursS formula = fail "too few subjects for an m-predicate"
+dig formula ts = return (dive formula)
   where
+    dive :: Formula -> Formula
     dive (Tag Dig f) = down digS f
     dive (Tag DigMultiSubject f) = down (digM $ zip ts $ tail ts) f
     dive (Tag DigMultiPairwise f) = down (digM $ pairMP ts) f
     dive f | isTrm f = f
     dive f = mapF dive f
 
+    down :: (Formula -> [Formula]) -> Formula -> Formula
     down fn (And f g) = And (down fn f) (down fn g)
     down fn f = foldl1 And (fn f)
 
+    digS :: Formula -> [Formula]
     digS f
       | occursH f = map ( `substHole` f) ts
       | otherwise = [f]
 
+    digM :: [(Formula, Formula)] -> Formula -> [Formula]
     digM ps f
       | not (occursS f) = digS f
       | not (occursH f) = map ( `substSlot` f) $ tail ts
       | otherwise = map (\ (x,y) -> substSlot y $ substHole x f) ps
 
-    pairMP (t:ts) = [ (t, s) | s <- ts ] ++ pairMP ts
+    -- example:
+    -- pairMP [1,2,3,4]
+    -- [(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)]
+    pairMP :: [b] -> [(b, b)]
+    pairMP (x:xs) = [ (x, x') | x' <- xs ] ++ pairMP xs
     pairMP _ = []
