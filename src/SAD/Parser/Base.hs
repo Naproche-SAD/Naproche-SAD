@@ -63,9 +63,6 @@ newtype Parser st a = Parser {runParser :: forall b .
   -> EmptyFail b
   -> b }
 
-
--- instance declarations: functor, applicative, monad, alternative, moandplus
-
 instance Functor (Parser st) where
   fmap f p = Parser $ \ st ok cerr err ->
     runParser p st (new ok) cerr err
