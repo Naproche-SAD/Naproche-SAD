@@ -84,7 +84,7 @@ genericTopsection kind headerParser endParser = do
 
 --- generic header parser
 
-header :: [String] -> FTL [Char]
+header :: [String] -> FTL String
 header titles = finalDot $ markupTokenOf topsectionHeader titles >> optLL1 "" topIdentifier
 
 
