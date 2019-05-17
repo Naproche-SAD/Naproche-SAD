@@ -134,7 +134,7 @@ hasPredicate = label "has predicate" $ noPossessive <|> possessive
   where
     possessive = art >> common <|> unary
     unary = fmap (Tag Dig . multExi) $ declared possess `sepBy` (comma >> art)
-    common = wdToken "common" >> 
+    common = wdToken "common" >>
       fmap multExi (fmap digadd (declared possess) `sepBy` comma)
 
     noPossessive = nUnary -|- nCommon
@@ -192,7 +192,7 @@ gnotion nt ra = do
       conjChain isPredicate
 
 
-anotion = label "notion (at most one name)" $ 
+anotion = label "notion (at most one name)" $
   art >> gnotion basentn rat >>= single >>= hol
   where
     hol (q, f, v) = return (q, subst zHole (fst v) f)
@@ -447,7 +447,7 @@ lambda = do
   (t, df_head, dom) <- ld_head; vs <- freeVars t; df <- addDecl vs lambdaBody
   return $ \f -> zFun f `And` Tag Domain (dom f) `And` (df_head f $ df $ zApp f t)
   where
-    ld_head = finish $ smTokenOf "\\" >> lambdaIn
+    ld_head = finalDot $ smTokenOf "\\" >> lambdaIn
 
 pair = sVar </> pr
   where

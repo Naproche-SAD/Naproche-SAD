@@ -126,8 +126,8 @@ dot = do
   return $ makeRange (pos1, advancePos pos1 '.')
 
 ---- mandatory finishing dot
-finish :: Parser st a -> Parser st a
-finish p = after p dot
+finalDot :: Parser st a -> Parser st a
+finalDot p = after p dot
 
 
 -- Control ambiguity
@@ -270,7 +270,7 @@ errorTrace label shw p = Parser $ \st ok cerr eerr ->
     where
       tabString = unlines . map ((++) "   ") . lines
 
-      
+
 notEof :: Parser st ()
 notEof = Parser $ \st ok _ eerr ->
   case uncons $ stInput st of
