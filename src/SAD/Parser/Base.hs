@@ -6,6 +6,9 @@ Parser datatype and monad instance.
 {-# LANGUAGE PolymorphicComponents #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
+{-# OPTIONS_GHC -Wall #-}
+
 module SAD.Parser.Base
   ( Parser(..),
     State (..),
@@ -22,15 +25,11 @@ import Control.Monad
 import qualified Control.Applicative as Applicative
 import Control.Monad.State.Class
 
-
 import SAD.Parser.Token
 import SAD.Parser.Error
 import SAD.Core.SourcePos
 
-import Data.Char
-import Data.List
-
-import Debug.Trace
+import Data.List (foldl')
 
 -- Parser state
 data State st = State {
@@ -40,7 +39,7 @@ data State st = State {
 
 
 stPosition :: State st -> SourcePos
-stPosition (State _ (t:ts) _) = tokenPos t
+stPosition (State _ (t:_) _) = tokenPos t
 stPosition (State _ _ pos) = pos
 
 -- intermediate parse results
@@ -160,7 +159,7 @@ runP p st = runParser p st ok cerr eerr
 instance MonadState st (Parser st) where
   get   = Parser $ \st ok _ _ ->
     ok (newErrorUnknown (stPosition st)) [PR (stUser st) st] []
-  put s = Parser $ \st ok cerr eerr ->
+  put s = Parser $ \st ok _cerr _eerr ->
     ok (newErrorUnknown (stPosition st)) [PR () st {stUser = s}] []
 
 
