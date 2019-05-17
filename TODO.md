@@ -1,6 +1,6 @@
-## TODO ##
+## TODO
 
-# Misc #
+# Misc
 
 * eliminate odd crash of --prover spass examples/Maximum_principle.ftl:
   "Undefined symbol sdtcflbdtrb."
@@ -9,7 +9,7 @@
   avoid duplicate information in Haskell sources, comments, init.opt
 
 
-# PIDE markup reports #
+# PIDE markup reports
 
 * def/ref markup fact names
 
@@ -18,7 +18,7 @@
 * more robust parsing: recover from errors (e.g. via TextError construction)
 
 
-# Admin #
+# Admin
 
 * systematic runs of "test" examples
 
@@ -26,7 +26,7 @@
   (e.g. appveyor, travis)
 
 
-# General #
+# General
 
 * caching of old results from prefix of source, old versions etc.
 
@@ -43,3 +43,8 @@
 
 * formulate underlying logic + set-theory in Isabelle (syntax only, no rules):
   thus formulas can be pretty-printed via Isabelle notation
+
+
+# Cosmetic
+
+* Allow `\in`, `\mathrm{dom}`, and similar commands as primitives. The relevant code is in `SAD.ForTheL.Base.initFS`
