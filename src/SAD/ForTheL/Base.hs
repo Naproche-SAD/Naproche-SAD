@@ -7,6 +7,8 @@ variables and macro expressions.
 
 {-# LANGUAGE FlexibleContexts #-}
 
+{-# OPTIONS_GHC -Wall #-}
+
 module SAD.ForTheL.Base where
 
 import Control.Monad
@@ -20,8 +22,6 @@ import SAD.Parser.Base
 import SAD.Parser.Combinators
 import SAD.Parser.Primitives
 
-import Debug.Trace
-import SAD.Parser.Token
 import SAD.Core.SourcePos
 
 import SAD.Data.Text.Decl (Decl(Decl))
@@ -29,8 +29,6 @@ import qualified SAD.Data.Text.Decl as Decl
 
 import SAD.Core.Message (PIDE)
 import qualified SAD.Core.Message as Message
-
-import qualified Isabelle.Markup as Markup
 
 type FTL = Parser FState
 
@@ -57,7 +55,7 @@ data FState = FState {
   reports :: [Message.Report], pide :: Maybe PIDE }
 
 
-
+initFS :: Maybe PIDE -> FState
 initFS = FState
   eq [] nt sn
   cf rf [] []
@@ -101,7 +99,7 @@ addDecl vs p = do
   after p $ MS.modify $ sbv dcl
   where
     adv s = s { varDecl = vs ++ varDecl s }
-    sbv vs s = s { varDecl = vs }
+    sbv vs' s = s { varDecl = vs' }
 
 getPretyped :: FTL [TVar]
 getPretyped = MS.gets tvrExpr
@@ -125,6 +123,9 @@ primUnAdj = getExpr (filter (unary . fst) . adjExpr) . primPrd
   where
     unary pt = Vr `notElem` pt
 
+primPrd :: Parser st (b1 -> b1, Formula)
+        -> ([Patt], [Formula] -> b2)
+        -> Parser st (b1 -> b1, b2)
 primPrd p (pt, fm) = do
   (q, ts) <- wdPatt p pt
   return (q, fm $ zHole:ts)
@@ -142,6 +143,9 @@ primMultiUnAdj = getExpr (filter (unary . fst) . adjExpr) . prim_ml_prd
     unary (_  : pt) = unary pt
     unary _ = True
 
+prim_ml_prd :: Parser st (b1 -> b1, Formula)
+            -> ([Patt], [Formula] -> b2)
+            -> Parser st (b1 -> b1, b2)
 prim_ml_prd p (pt, fm) = do
   (q, ts) <- mlPatt p pt
   return (q, fm $ zHole:zSlot:ts)
@@ -182,16 +186,28 @@ primFun  = (>>= fun) . primNtn
 
 -- Symbolic primitives
 
+primCpr :: Parser FState Formula -> FTL Formula
+primRpr :: Parser FState Formula -> FTL (Formula -> Formula)
+primLpr :: Parser FState Formula -> FTL (Formula -> Formula)
+primIpr :: Parser FState Formula -> FTL (Formula -> Formula -> Formula)
 primCpr = getExpr cprExpr . primCsm
 primRpr = getExpr rprExpr . primRsm
 primLpr = getExpr lprExpr . primLsm
 primIpr = getExpr iprExpr . primIsm
 
+primCfn :: Parser FState Formula -> FTL Formula
+primRfn :: Parser FState Formula -> FTL (Formula -> Formula)
+primLfn :: Parser FState Formula -> FTL (Formula -> Formula)
+primIfn :: Parser FState Formula -> FTL (Formula -> Formula -> Formula)
 primCfn = getExpr cfnExpr . primCsm
 primRfn = getExpr rfnExpr . primRsm
 primLfn = getExpr lfnExpr . primLsm
 primIfn = getExpr ifnExpr . primIsm
 
+primCsm :: Parser st a -> ([Patt], [a] -> b) -> Parser st b
+primRsm :: Parser st a -> ([Patt], [a] -> t) -> Parser st (a -> t)
+primLsm :: Parser st a -> ([Patt], [a] -> t) -> Parser st (a -> t)
+primIsm :: Parser st a -> ([Patt], [a] -> t) -> Parser st (a -> a -> t)
 primCsm p (pt, fm) = smPatt p pt >>= \l -> return $ fm l
 primRsm p (pt, fm) = smPatt p pt >>= \l -> return $ \t -> fm $ t:l
 primLsm p (pt, fm) = smPatt p pt >>= \l -> return $ \s -> fm $ l++[s]
@@ -205,9 +221,15 @@ primSnt p  = noError $ varlist >>= getExpr sntExpr . snt
 
 
 
-
+-- TODO: Give these longer names. Do they mean the following?
+--         Wd ~> Word
+--         Sm ~> Symbol
+--         Vr ~> Variable
+--         Nm ~> Name / Nomen / Numeric
 data Patt = Wd [String] | Sm String | Vr | Nm deriving (Eq, Show)
 
+
+samePat :: [Patt] -> [Patt] -> Bool
 samePat [] [] = True
 samePat (Wd ls : rst1) (Wd rs : rst2) =
   all (`elem` rs) ls && samePat rst1 rst2
@@ -218,11 +240,15 @@ samePat _ _ = False
 
 
 -- adding error reporting to pattern parsing
+patternWdTokenOf :: [String] -> Parser st ()
 patternWdTokenOf l = label ("a word of " ++ show l) $ wdTokenOf l
+
+patternSmTokenOf :: String -> Parser st ()
 patternSmTokenOf l = label ("the symbol " ++ show l) $ smTokenOf l
 
--- most basic pattern parser: simply follow the pattern anf parse terms with p
+-- most basic pattern parser: simply follow the pattern and parse terms with p
 -- at variable places
+wdPatt :: Parser st (b -> b, a) -> [Patt] -> Parser st (b -> b, [a])
 wdPatt p (Wd l : ls) = patternWdTokenOf l >> wdPatt p ls
 wdPatt p (Vr : ls) = do
   (r, t) <- p
@@ -232,6 +258,7 @@ wdPatt _ [] = return (id, [])
 wdPatt _ _ = mzero
 
 -- parses a symbolic pattern
+smPatt :: Parser st a -> [Patt] -> Parser st [a]
 smPatt p (Vr : ls) = liftM2 (:) p $ smPatt p ls
 smPatt p (Sm s : ls) = patternSmTokenOf s >> smPatt p ls
 smPatt _ [] = return []
@@ -241,6 +268,7 @@ smPatt _ _ = mzero
 -- right before the first variable. Then check that all "and" tokens have been
 -- consumed. Example pattern: [Wd ["commute","commutes"], Wd ["with"], Vr]. Then
 -- we can parse "a commutes with c and d" as well as "a and b commute".
+mlPatt :: Parser st (b -> b, a) -> [Patt] -> Parser st (b -> b, [a])
 mlPatt p (Wd l :_: Vr : ls) = patternWdTokenOf l >> naPatt p ls
 mlPatt p (Wd l : ls) = patternWdTokenOf l >> mlPatt p ls
 mlPatt _ _ = mzero
@@ -248,6 +276,7 @@ mlPatt _ _ = mzero
 
 -- parses a notion: follow the pattern to the name place, record names,
 -- then keep following the pattern
+ntPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [([Char], SourcePos)], [a])
 ntPatt p (Wd l : ls) = patternWdTokenOf l >> ntPatt p ls
 ntPatt p (Nm : ls) = do
   vs <- namlist
@@ -257,6 +286,7 @@ ntPatt _ _ = mzero
 
 -- parse an "of"-notion: follow the pattern to the notion name, then check that
 -- "of" follows the name followed by a variable that is not followed by "and"
+ofPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [([Char], SourcePos)], [a])
 ofPatt p (Wd l : ls) = patternWdTokenOf l >> ofPatt p ls
 ofPatt p (Nm : Wd l : Vr : ls) = do
   guard $ elem "of" l; vs <- namlist
@@ -267,6 +297,10 @@ ofPatt _ _ = mzero
 -- parse a "common"-notion: basically like the above. We use the special parser
 -- s for the first variable place after the "of" since we expect multiple terms
 -- here. Example: A common *divisor of m and n*.
+cmPatt :: FTL (b -> b, a1)
+       -> FTL (b -> c, [a2])
+       -> [Patt]
+       -> FTL (b -> c, [([Char], SourcePos)], [a2], [a1])
 cmPatt p s (Wd l:ls) = patternWdTokenOf l >> cmPatt p s ls
 cmPatt p s (Nm : Wd l : Vr : ls) = do
   guard $ elem "of" l; vs <- namlist; patternWdTokenOf l
@@ -278,6 +312,7 @@ cmPatt _ _ _ = mzero
 
 -- an auxiliary pattern parser that checks that we are not dealing wiht an "and"
 -- wdToken and then continues to follow the pattern
+naPatt :: Parser st (b -> b, a) -> [Patt] -> Parser st (b -> b, [a])
 naPatt p (Wd l : ls) = guard (notElem "and" l) >> patternWdTokenOf l >> wdPatt p ls
 naPatt p ls = wdPatt p ls
 
@@ -285,20 +320,25 @@ naPatt p ls = wdPatt p ls
 
 -- Variables
 
+namlist :: FTL [([Char], SourcePos)]
 namlist = varlist -|- fmap (:[]) hidden
 
+varlist :: FTL [([Char], SourcePos)]
 varlist = do
   vs <- var `sepBy` wdToken ","
   nodups $ map fst vs ; return vs
 
+nodups :: Monad f => [String] -> f ()
 nodups vs = unless ((null :: [b] -> Bool) $ duplicateNames vs) $
   fail $ "duplicate names: " ++ show vs
 
+hidden :: MS.MonadState FState m => m ([Char], SourcePos)
 hidden = do
   n <- MS.gets hiddenCount
   MS.modify $ \st -> st {hiddenCount = succ n}
   return ('h':show n, noPos)
 
+var :: FTL ([Char], SourcePos)
 var = do
   pos <- getPos
   v <- satisfy (\s -> all isAlphaNum s && isAlpha (head s))
@@ -318,8 +358,15 @@ primTvr = getExpr tvrExpr tvr
 
 -- free
 
-freeVars f = do dvs <- getDecl; return $ free dvs f
-freeVarPositions f = do dvs <- getDecl; return $ freePositions dvs f
+freeVars :: Formula -> FTL [String]
+freeVars f = do
+  dvs <- getDecl
+  return (free dvs f)
+
+freeVarPositions :: Formula -> FTL [(String, SourcePos)]
+freeVarPositions f = do
+  dvs <- getDecl
+  return (freePositions dvs f)
 
 --- decl
 
@@ -365,19 +412,21 @@ overfree vs f
     ovl = unwords $ map showVar $ over vs f
     inf = "\n in translation: " ++ show f
 
-    over vs (All v f) = bvrs vs (Decl.name v) f
-    over vs (Exi v f) = bvrs vs (Decl.name v) f
-    over vs f = foldF (over vs) f
+over :: [String] -> Formula -> [String]
+over vs (All v f) = bvrs vs (Decl.name v) f
+over vs (Exi v f) = bvrs vs (Decl.name v) f
+over vs f = foldF (over vs) f
 
-    bvrs vs v f
-      | elem v vs = [v]
-      | null v    = over vs f
-      | otherwise = over (v:vs) f
+bvrs :: [String] -> String -> Formula -> [String]
+bvrs vs v f
+  | elem v vs = [v]
+  | null v    = over vs f
+  | otherwise = over (v:vs) f
 
 
 --- macro expressions
 
-
+comma, is, art, an, the, iff, that, standFor, arrow, there, does, has, with, such :: FTL ()
 comma = wdTokenOf [",", "and"]
 is = wdTokenOf ["is", "be", "are"]
 art = opt () $ wdTokenOf ["a","an","the"]
@@ -397,5 +446,6 @@ such = wdTokenOf ["such", "so"]
 
 --just for now:
 
+showVar :: String -> String
 showVar ('x':nm) = nm
 showVar nm = nm

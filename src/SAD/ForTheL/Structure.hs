@@ -127,7 +127,7 @@ assume = sentence Assumption (asmH >> statement) assumeVars noLink
 llDefn = sentence LowDefinition(ldfH >> setNotion </> functionNotion) llDefnVars noLink
 
 -- Links and Identifiers
-link :: Parser st [String]
+link :: FTL [String]
 link = finalDot eqLink
   -- TODO: (Adrian 20190517) this is not used, why is this here?
   -- where
@@ -146,7 +146,7 @@ lowIdentifier = expar topIdentifier
 noLink :: Parser st [a]
 noLink = finalDot (return [])
 
-eqLink :: Parser st [String]
+eqLink :: FTL [String]
 eqLink = optLL1 [] (expar $ wdToken "by" >> identifiers)
   where
     identifiers = topIdentifier `sepByLL1` comma

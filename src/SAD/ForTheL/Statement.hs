@@ -77,7 +77,7 @@ atomic = label "atomic statement"
   where
     wehve = optLL1 () $ wdToken "we" >> wdToken "have"
 
-thesis :: Parser st Formula
+thesis :: FTL Formula
 thesis = art >> (thes <|> contrary <|> contradiction)
   where
     thes = wdToken "thesis" >> return zThesis
@@ -334,7 +334,7 @@ sTerm = iTerm
 
     cTerm = label "symbolic term" $ sVar -|- expar sTerm -|- primCfn sTerm
 
-sVar :: Parser st Formula
+sVar :: FTL Formula
 sVar = fmap pVar var
 
 -- class term equations
@@ -481,7 +481,7 @@ lambda = do
   where
     ld_head = finalDot $ smTokenOf "\\" >> lambdaIn
 
-pair :: Parser st Formula
+pair :: FTL Formula
 pair = sVar </> pr
   where
     pr = do [l,r] <- smPatt pair pairPattern; return $ zPair l r
