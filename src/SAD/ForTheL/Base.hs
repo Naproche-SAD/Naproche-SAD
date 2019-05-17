@@ -5,7 +5,7 @@ FoTheL state and state management, parsing of primitives, operations on
 variables and macro expressions.
 -}
 
-
+{-# LANGUAGE FlexibleContexts #-}
 
 module SAD.ForTheL.Base where
 
@@ -68,7 +68,7 @@ initFS = FState
     eq = [
       ([Wd ["equal"], Wd ["to"], Vr], zTrm (-1) "="),
       ([Wd ["nonequal"], Wd ["to"], Vr], Not . zTrm (-1) "=") ]
-    sp = [ 
+    sp = [
       ([Sm "="], zTrm (-1) "="),
       ([Sm "!", Sm "="], Not . zTrm (-1) "="),
       ([Sm "-", Sm "<", Sm "-"], zTrm (-2) "iLess"),
@@ -125,7 +125,7 @@ primUnAdj = getExpr (filter (unary . fst) . adjExpr) . primPrd
   where
     unary pt = Vr `notElem` pt
 
-primPrd p (pt, fm) = do 
+primPrd p (pt, fm) = do
   (q, ts) <- wdPatt p pt
   return (q, fm $ zHole:ts)
 

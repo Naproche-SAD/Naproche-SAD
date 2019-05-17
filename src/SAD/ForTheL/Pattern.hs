@@ -4,7 +4,7 @@ Authors: Andrei Paskevich (2001 - 2008), Steffen Frerix (2017 - 2018)
 Pattern parsing and pattern state management.
 -}
 
-
+{-# LANGUAGE FlexibleContexts #-}
 
 module SAD.ForTheL.Pattern where
 
