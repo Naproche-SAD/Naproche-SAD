@@ -42,14 +42,14 @@ forthel = section <|> macroOrPretype <|> bracketExpression <|> endOfFile
     macroOrPretype = liftM2 (:) (introduceMacro </> pretypeVariable) forthel
     endOfFile = eof >> return []
 
-bracketExpression :: Parser FState [Text]
+bracketExpression :: FTL [Text]
 bracketExpression = topInstruction >>= procParseInstruction
   where
     topInstruction =
       fmap (uncurry TextDrop) instrDrop </>
       fmap (uncurry TextInstr) (instr </> instrExit </> instrRead)
 
-procParseInstruction :: Text -> Parser FState [Text]
+procParseInstruction :: Text -> FTL [Text]
 procParseInstruction text = case text of
   TextInstr _ (Instr.String Instr.Read _) -> return [text]
   TextInstr _ (Instr.Command Instr.EXIT) -> return []
@@ -62,15 +62,12 @@ procParseInstruction text = case text of
       | null syms || null (tail syms) = return ()
       | otherwise = MS.modify $ \st -> st {strSyms = syms : strSyms st}
 
-topsection :: Parser FState Block
+topsection :: FTL Block
 topsection = parseSignature <|> definition <|> axiom <|> theorem
 
 --- generic topsection parsing
 
-genericTopsection :: Section
-                  -> Parser FState String
-                  -> Parser FState [Text]
-                  -> Parser FState Block
+genericTopsection :: Section -> FTL String -> FTL [Text] -> FTL Block
 genericTopsection kind headerParser endParser = do
   pos <- getPos
   inp <- getInput
@@ -87,34 +84,34 @@ genericTopsection kind headerParser endParser = do
 
 --- generic header parser
 
-header :: [String] -> Parser FState [Char]
+header :: [String] -> FTL [Char]
 header titles = finalDot $ markupTokenOf topsectionHeader titles >> optLL1 "" topIdentifier
 
 
 -- topsections
 
-parseSignature :: Parser FState Block
+parseSignature :: FTL Block
 parseSignature =
   let sigext = pretype $ pretypeSentence Posit sigExtend defVars noLink
   in  genericTopsection Signature sigH sigext
 
-definition :: Parser FState Block
+definition :: FTL Block
 definition =
   let define = pretype $ pretypeSentence Posit defExtend defVars noLink
   in  genericTopsection Definition defH define
 
-axiom :: Parser FState Block
+axiom :: FTL Block
 axiom =
   let s     = pretypeSentence Posit (affH >> statement) affirmVars noLink
       posit = pretype s
   in  genericTopsection Axiom axmH posit
 
-theorem :: Parser FState Block
+theorem :: FTL Block
 theorem =
   let topAffirm = pretypeSentence Affirmation (affH >> statement) affirmVars link
   in  genericTopsection Theorem thmH (topProof topAffirm)
 
-sigH, defH, axmH, thmH :: Parser FState [Char]
+sigH, defH, axmH, thmH :: FTL [Char]
 sigH = header ["signature"]
 defH = header ["definition"]
 axmH = header ["axiom"]
@@ -122,7 +119,7 @@ thmH = header ["theorem", "lemma", "corollary", "proposition"]
 
 
 -- low-level
-choose, caseHypo, affirm, assume, llDefn :: Parser FState Block
+choose, caseHypo, affirm, assume, llDefn :: FTL Block
 choose = sentence Selection (chooseHeader >> selection) assumeVars link
 caseHypo = sentence Block.CaseHypothesis (caseHeader >> statement) affirmVars link
 affirm = sentence Affirmation (affH >> statement) affirmVars link </> eqChain
@@ -191,19 +188,19 @@ pretype p = p `pretypeBefore` return []
 
 
 -- low-level header
-hence, letUs :: Parser FState ()
+hence, letUs :: FTL ()
 hence = optLL1 () $ wdTokenOf ["then", "hence", "thus", "therefore"]
 letUs = optLL1 () $ (mu "let" >> mu "us") <|> (mu "we" >> mu "can")
   where
     mu = markupToken lowlevelHeader
 
-chooseHeader :: Parser FState ()
+chooseHeader :: FTL ()
 chooseHeader = hence >> letUs >> markupTokenOf lowlevelHeader ["choose", "take", "consider"]
 
 caseHeader :: FTL ()
 caseHeader = markupToken lowlevelHeader "case"
 
-affH, asmH :: Parser FState ()
+affH, asmH :: FTL ()
 affH = hence
 asmH = lus </> markupToken lowlevelHeader "let"
   where
@@ -215,10 +212,7 @@ ldfH = markupToken lowlevelHeader "define"
 
 -- generic sentence parser
 
-statementBlock :: Section
-               -> Parser st Formula
-               -> Parser st [String]
-               -> Parser st Block
+statementBlock :: Section -> FTL Formula -> FTL [String] -> FTL Block
 statementBlock kind p mbLink = do
   nm <- opt "__" lowIdentifier
   pos <- getPos
@@ -229,10 +223,10 @@ statementBlock kind p mbLink = do
   return (Block.makeBlock fr [] kind nm lnk pos toks)
 
 pretypeSentence :: Section
-                -> Parser FState Formula
+                -> FTL Formula
                 -> ([String] -> Formula -> Maybe String)
-                -> Parser FState [String]
-                -> Parser FState Block
+                -> FTL [String]
+                -> FTL Block
 pretypeSentence kind p wfVars mbLink = narrow $ do
   dvs <- getDecl; tvr <- fmap (concatMap fst) getPretyped
   bl <- wellFormedCheck (wf dvs tvr) $ statementBlock kind p mbLink
@@ -245,10 +239,10 @@ pretypeSentence kind p wfVars mbLink = narrow $ do
       in  wfVars (nvs ++ dvs) fr
 
 sentence :: Section
-         -> Parser FState Formula
+         -> FTL Formula
          -> ([String] -> Formula -> Maybe String)
-         -> Parser FState [String]
-         -> Parser FState Block
+         -> FTL [String]
+         -> FTL Block
 sentence kind p wfVars mbLink = do
   dvs <- getDecl;
   bl <- wellFormedCheck (wfVars dvs . Block.formula) $ statementBlock kind p mbLink
@@ -286,19 +280,19 @@ affirmVars = overfree
 
 data Scheme = None | Short | Raw | InS | InT Formula deriving Show
 
-preMethod :: Parser FState Scheme
+preMethod :: FTL Scheme
 preMethod = optLLx None $ letUs >> demoToken >> after method thatToken
   where
     demoToken = markupTokenOf lowlevelHeader ["prove", "show", "demonstrate"]
     thatToken = markupToken lowlevelHeader "that"
 
-postMethod :: Parser FState Scheme
+postMethod :: FTL Scheme
 postMethod = optLL1 None (short <|> explicit)
   where
     short = markupToken proofStart "indeed" >> return Short
     explicit = finalDot $ markupToken proofStart "proof" >> method
 
-method :: Parser FState Scheme
+method :: FTL Scheme
 method = optLL1 Raw $ markupToken byAnnotation "by" >> (contradict <|> cases <|> induction)
   where
     contradict = wdToken "contradiction" >> return Raw
@@ -308,7 +302,7 @@ method = optLL1 Raw $ markupToken byAnnotation "by" >> (contradict <|> cases <|>
 
 --- creation of induction thesis
 
-indThesis :: Formula -> Scheme -> Scheme -> Parser FState Formula
+indThesis :: Formula -> Scheme -> Scheme -> FTL Formula
 indThesis fr pre post = do
   it <- indScheme pre post >>= indTerm fr; dvs <- getDecl
   indFormula (freePositions dvs it) it fr
@@ -338,14 +332,14 @@ indThesis fr pre post = do
 
 -- proof initiation
 
-proof :: Parser FState Block -> Parser FState Block
+proof :: FTL Block -> FTL Block
 proof p = do
   pre <- preMethod; bl <- p; post <- postMethod;
   nf <- indThesis (Block.formula bl) pre post
   addBody pre post $ bl {Block.formula = nf}
 
 
-topProof :: Parser FState Block -> Parser FState [Text]
+topProof :: FTL Block -> FTL [Text]
 topProof p = do
   pre <- preMethod; bl <- p; post <- postMethod; typeBlock <- pretyping bl;
   let pretyped = Block.declaredNames typeBlock
@@ -354,7 +348,7 @@ topProof p = do
     addBody pre post $ bl {Block.formula = nf}
   return $ if null pretyped then [nbl] else [TextBlock typeBlock, nbl]
 
-addBody :: Scheme -> Scheme -> Block -> Parser FState Block
+addBody :: Scheme -> Scheme -> Block -> FTL Block
 addBody None None = return -- no proof was given
 addBody _ Short = proofSentence    -- a short proof was given
 addBody _ _ = proofBody    -- a full proof was given
@@ -363,12 +357,12 @@ addBody _ _ = proofBody    -- a full proof was given
 
 -- proof texts
 
-proofSentence :: Block -> Parser FState Block
+proofSentence :: Block -> FTL Block
 proofSentence bl = do
   pbl <- narrow assume </> proof (narrow $ affirm </> choose) </> narrow llDefn
   return bl {Block.body = [TextBlock pbl]}
 
-proofBody :: Block -> Parser FState Block
+proofBody :: Block -> FTL Block
 proofBody bl = do
   bs <- proofText; ls <- link
   return bl {Block.body = bs, Block.link = ls ++ Block.link bl}
@@ -387,7 +381,7 @@ proofText =
       fmap (uncurry TextDrop) instrDrop </>
       fmap (uncurry TextInstr) instr
 
-caseDestinction :: Parser FState Block
+caseDestinction :: FTL Block
 caseDestinction = do
   bl@Block { Block.formula = fr } <- narrow caseHypo
   proofBody $ bl {
@@ -396,7 +390,7 @@ caseDestinction = do
 
 -- equality Chain
 
-eqChain :: Parser FState Block
+eqChain :: FTL Block
 eqChain = do
   dvs <- getDecl; nm <- opt "__" lowIdentifier; pos <- getPos; inp <- getInput
   body <- wellFormedCheck (chainVars dvs) $ sTerm >>= nextTerm
@@ -408,7 +402,7 @@ eqChain = do
   where
     chainVars dvs = affirmVars dvs . foldl1 And . map Block.formula
 
-eqTail :: Formula -> Parser FState [Block]
+eqTail :: Formula -> FTL [Block]
 eqTail t = nextTerm t </> (smTokenOf "." >> return [])
 
 nextTerm :: Formula -> FTL [Block]
