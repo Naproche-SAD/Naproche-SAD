@@ -62,7 +62,7 @@ procParseInstruction text = case text of
   _ -> fmap ((:) text) forthel
   where
     addSynonym :: [String] -> FTL ()
-    addSynonym syms 
+    addSynonym syms
       | null syms || null (tail syms) = return ()
       | otherwise = MS.modify $ \st -> st {strSyms = syms : strSyms st}
 
@@ -97,10 +97,10 @@ axiom =
   let posit = pretype $
         pretypeSentence Posit (affH >> statement) affirmVars noLink
   in  genericTopsection Axiom axmH posit
-theorem = 
+theorem =
   let topAffirm = pretypeSentence Affirmation (affH >> statement) affirmVars link
   in  genericTopsection Theorem thmH (topProof topAffirm)
-    
+
 
 sigH = header ["signature"]
 defH = header ["definition"]
@@ -320,7 +320,7 @@ proofBody bl = do
   bs <- proofText; ls <- link
   return bl {Block.body = bs, Block.link = ls ++ Block.link bl}
 
-proofText = 
+proofText =
   qed <|>
   (unfailing (fmap TextBlock lowtext <|> instruction) `updateDeclbefore` proofText)
   where
@@ -335,7 +335,7 @@ proofText =
 
 caseDestinction = do
   bl@Block { Block.formula = fr } <- narrow caseHypo
-  proofBody $ bl { 
+  proofBody $ bl {
   Block.formula = Imp (Tag Tag.CaseHypothesis fr) zThesis}
 
 
