@@ -221,7 +221,8 @@ wellFormedCheck :: (a -> Maybe String) -> Parser st a -> Parser st a
 wellFormedCheck check p = Parser $ \st ok cerr eerr ->
   let pos = stPosition st
       pok err eok cok =
-        let wfEok = wf eok; wfCok = wf cok
+        let wfEok = wf eok
+            wfCok = wf cok
         in  if   null $ wfEok ++ wfCok
             then notWf err eok cok
             else ok err wfEok wfCok

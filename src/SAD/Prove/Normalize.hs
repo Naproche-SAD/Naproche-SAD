@@ -131,9 +131,11 @@ skolemize n f =
     skolem (All x f) = fmap (All x) $ increaseDependency >> skolem f
     skolem (Exi _ f) = instSkolem f >>= skolem . dec
     skolem (Or  f g) = do
-      st <- get; liftM2 Or  (skolem f) (resetDependency st >> skolem g)
+      st <- get
+      liftM2 Or  (skolem f) (resetDependency st >> skolem g)
     skolem (And f g) = do
-      st <- get; liftM2 And (skolem f) (resetDependency st >> skolem g)
+      st <- get
+      liftM2 And (skolem f) (resetDependency st >> skolem g)
     skolem f = return f
 
     increaseDependency =
@@ -143,8 +145,10 @@ skolemize n f =
 
 instSkolem :: Formula -> State SkState Formula
 instSkolem f = do
-  st <- get; let nf = instSk (skolemCounter st) (dependencyCounter st) f
-  put $ st { skolemCounter = succ (skolemCounter st) }; return nf
+  st <- get
+  let nf = instSk (skolemCounter st) (dependencyCounter st) f
+  put $ st { skolemCounter = succ (skolemCounter st) }
+  return nf
 
 instSk :: Int -> Int -> Formula -> Formula
 instSk skolemCnt dependencyCnt = dive 0

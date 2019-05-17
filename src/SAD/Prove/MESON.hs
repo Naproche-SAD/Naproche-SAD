@@ -37,7 +37,7 @@ contrapositives ls =
 {- the monadic action to generate meson rules during text verfication -}
 contras :: Formula -> VM (([MRule], [MRule]), Int)
 contras f = do
-  m <- asks skolemCounter;
+  m <- asks skolemCounter
   let (skf, nm) = skolemize m $ simplify f
       cnf = transformToCNF skf
   return (splitContras $ concatMap contrapositives cnf, nm)
@@ -93,7 +93,7 @@ solve n localRules positives negatives ancestors goal =
       fmap (sbs . ) $ solveGoals m newAncestors $ map sbs goals
 
 
-{- find out which part of a substitution is actually relevant for the 
+{- find out which part of a substitution is actually relevant for the
 current goal-}
 relevantSbs :: Formula -> (Formula -> Formula) -> (Formula -> Formula)
 relevantSbs f sb =
@@ -115,7 +115,8 @@ rename fs = insertU
     insertU f = mapF insertU f
 
     maxU = myMaximum $ concatMap (foldF getU) fs
-    getU Var {trName = 'u':m} = [read m]; getU f = foldF getU f
+    getU Var {trName = 'u':m} = [read m]
+    getU f = foldF getU f
 
     myMaximum [] = -1
     myMaximum ls = maximum ls

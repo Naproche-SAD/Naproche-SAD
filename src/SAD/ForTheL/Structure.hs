@@ -162,7 +162,9 @@ updateDeclbefore blp p = do
 
 pretyping :: Block -> FTL Block
 pretyping bl = do
-  dvs <- getDecl; tvs <- getPretyped; pret dvs tvs bl
+  dvs <- getDecl
+  tvs <- getPretyped
+  pret dvs tvs bl
 
 pret :: [String] -> [TVar] -> Block -> FTL Block
 pret dvs tvs bl = do
@@ -395,9 +397,10 @@ eqChain = do
   dvs <- getDecl; nm <- opt "__" lowIdentifier; pos <- getPos; inp <- getInput
   body <- wellFormedCheck (chainVars dvs) $ sTerm >>= nextTerm
   toks <- getTokens inp
-  let Tag EqualityChain Trm{trArgs = [t,_]} = Block.formula $ head body
-      Tag EqualityChain Trm{trArgs = [_,s]} = Block.formula $ last body
-      fr = Tag EqualityChain $ zEqu t s; tBody = map TextBlock body
+  let Tag EqualityChain Trm{trArgs = [t,_]} = Block.formula (head body)
+      Tag EqualityChain Trm{trArgs = [_,s]} = Block.formula (last body)
+      fr = Tag EqualityChain $ zEqu t s
+      tBody = map TextBlock body
   return $ Block.makeBlock fr tBody Affirmation nm [] pos toks
   where
     chainVars dvs = affirmVars dvs . foldl1 And . map Block.formula

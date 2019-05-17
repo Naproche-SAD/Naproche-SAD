@@ -19,7 +19,7 @@ module SAD.Parser.Error
     newExpect,
     newWfMsg )
   where
-    
+
 import SAD.Core.SourcePos
 
 import Data.List (nub, sort)
@@ -31,9 +31,14 @@ data Message
   | WfMsg {message :: [String]} -- Well-formedness message
   | Unknown deriving Show
 
-isUnknownMsg Unknown     = True; isUnknownMsg _ = False
-isExpectMsg  ExpectMsg{} = True; isExpectMsg  _ = False
-isWfMsg      WfMsg{}     = True; isWfMsg      _ = False
+isUnknownMsg Unknown     = True
+isUnknownMsg _ = False
+
+isExpectMsg ExpectMsg{} = True
+isExpectMsg _ = False
+
+isWfMsg WfMsg{} = True
+isWfMsg _ = False
 
 newMessage  msg = ExpectMsg {unExpect = "" , expect = []   , message = [msg]}
 newUnExpect tok = ExpectMsg {unExpect = tok, expect = []   , message = []   }
@@ -48,7 +53,9 @@ instance Enum Message where
   toEnum _ = error "toEnum is undefined for Message"
 
 instance Eq Message where
-  msg1 == msg2 = case compare msg1 msg2 of EQ -> True; _ -> False
+  msg1 == msg2 = case compare msg1 msg2 of
+    EQ -> True
+    _  -> False
 
 instance Ord Message where
   compare msg1 msg2 =
@@ -58,6 +65,8 @@ instance Ord Message where
       EQ -> case msg1 of
               ExpectMsg{} -> compare (unExpect msg1) (unExpect msg2)
               _           -> EQ
+
+
 
 mergeMessage :: Message -> Message -> Message
 mergeMessage msg1 msg2 =

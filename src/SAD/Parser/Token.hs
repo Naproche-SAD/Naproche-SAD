@@ -104,7 +104,8 @@ composeTokens (t:ts) =
   in  ws ++ showToken t ++ composeTokens ts
 
 isEOF :: Token -> Bool
-isEOF EOF{} = True; isEOF _ = False
+isEOF EOF{} = True
+isEOF _     = False
 
 
 
