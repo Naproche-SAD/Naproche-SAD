@@ -44,7 +44,9 @@ markupToken markup s = do
 
 markupTokenOf :: Markup.T -> [String] -> FTL ()
 markupTokenOf markup ss = do
-  pos <- getPos; wdTokenOf ss; addReports $ const [(pos, markup)]
+  pos <- getPos
+  wdTokenOf ss
+  addReports (const [(pos, markup)])
 
 
 -- formula and variable reports

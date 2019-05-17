@@ -131,6 +131,21 @@ finalDot :: Parser st a -> Parser st a
 finalDot p = after p dot
 
 
+---- Parse TEX-style command of the form `"\commandName{argumentName}"`.
+---- TODO: this needs considerable refactoring to be really useful.
+backslashCommand :: String -> String -> Parser st String
+backslashCommand cmd arg = do
+  wdToken "\\"
+  wdToken cmd
+  wdToken "{"
+  wdToken arg
+  wdToken "}"
+  return arg
+
+backslashBegin :: String -> Parser st String
+backslashBegin = backslashCommand "begin"
+
+
 -- Control ambiguity
 
 ---- if p is ambiguos, fail and report a well-formedness error

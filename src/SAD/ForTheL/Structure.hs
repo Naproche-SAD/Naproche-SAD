@@ -93,29 +93,29 @@ header titles = finalDot $ markupTokenOf topsectionHeader titles >> optLL1 "" to
 parseSignature :: FTL Block
 parseSignature =
   let sigext = pretype $ pretypeSentence Posit sigExtend defVars noLink
-  in  genericTopsection Signature sigH sigext
+  in  genericTopsection Signature beginSig sigext
 
 definition :: FTL Block
 definition =
   let define = pretype $ pretypeSentence Posit defExtend defVars noLink
-  in  genericTopsection Definition defH define
+  in  genericTopsection Definition beginDef define
 
 axiom :: FTL Block
 axiom =
   let s     = pretypeSentence Posit (affH >> statement) affirmVars noLink
       posit = pretype s
-  in  genericTopsection Axiom axmH posit
+  in  genericTopsection Axiom beginAxiom posit
 
 theorem :: FTL Block
 theorem =
   let topAffirm = pretypeSentence Affirmation (affH >> statement) affirmVars link
-  in  genericTopsection Theorem thmH (topProof topAffirm)
+  in  genericTopsection Theorem beginTheorem (topProof topAffirm)
 
-sigH, defH, axmH, thmH :: FTL [Char]
-sigH = header ["signature"]
-defH = header ["definition"]
-axmH = header ["axiom"]
-thmH = header ["theorem", "lemma", "corollary", "proposition"]
+beginSig, beginDef, beginAxiom, beginTheorem :: FTL String
+beginSig    = header ["signature"]
+beginDef     = header ["definition"]
+beginAxiom   = header ["axiom"]
+beginTheorem = header ["proposition"]
 
 
 -- low-level
