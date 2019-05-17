@@ -207,7 +207,6 @@ primSnt p  = noError $ varlist >>= getExpr sntExpr . snt
 
 
 data Patt = Wd [String] | Sm String | Vr | Nm deriving (Eq, Show)
- -- I added the deriving Show
 
 samePat [] [] = True
 samePat (Wd ls : rst1) (Wd rs : rst2) =
