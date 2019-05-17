@@ -102,8 +102,11 @@ needsProof block = sign $ kind block
 
 {- which statements can declare variables -}
 canDeclare :: Section -> Bool
-canDeclare Assumption = True; canDeclare Selection = True
-canDeclare LowDefinition = True; canDeclare _ = False
+canDeclare section = case section of
+  Assumption    -> True
+  Selection     -> True
+  LowDefinition -> True
+  _             -> False
 
 
 isTopLevel :: Block -> Bool
