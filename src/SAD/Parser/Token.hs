@@ -6,6 +6,8 @@ Tokenization of input.
 
 {-# LANGUAGE NamedFieldPuns #-}
 
+{-# OPTIONS_GHC -Wall #-}
+
 module SAD.Parser.Token
   ( Token (tokenPos, tokenText),
     tokenEndPos,
@@ -20,7 +22,6 @@ module SAD.Parser.Token
   where
 
 import Data.Char
-import Data.List
 
 import SAD.Core.SourcePos
 import qualified SAD.Core.Message as Message
@@ -35,6 +36,7 @@ data Token =
     tokenProper :: Bool} |
   EOF {tokenPos :: SourcePos}
 
+makeToken :: String -> SourcePos -> Bool -> Bool -> Token
 makeToken s pos ws proper =
   Token s (rangePos (pos, advancesPos pos s)) ws proper
 
