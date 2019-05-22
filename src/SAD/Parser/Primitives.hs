@@ -4,7 +4,7 @@ Authors: Steffen Frerix (2017 - 2018)
 Primitive parsers.
 -}
 
-
+{-# OPTIONS_GHC -Wall #-}
 
 module SAD.Parser.Primitives where
 
@@ -49,7 +49,7 @@ eof = Parser $ \(State st input _) ok _ eerr ->
 -- error handling outside of the monad
 
 catchError :: (ParseError -> a) -> Parser st a -> Parser st a
-catchError catch p = Parser $ \st ok cerr eerr ->
+catchError catch p = Parser $ \st ok _cerr _eerr ->
   let pcerr err = ok (newErrorUnknown $ stPosition st) [] [PR (catch err) st]
       peerr err = ok (newErrorUnknown $ stPosition st) [PR (catch err) st] []
   in  runParser p st ok pcerr peerr
