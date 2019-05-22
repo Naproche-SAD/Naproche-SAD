@@ -6,6 +6,8 @@ Syntax of ForThel Instructions.
 
 {-# LANGUAGE LambdaCase #-}
 
+{-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
+
 module SAD.ForTheL.Instruction where
 
 import Control.Monad
@@ -69,12 +71,14 @@ readInstr =
     readInstrString = liftM2 Instr.String (readKeywords Instr.keywordsString) readString
     readInstrStrings = liftM2 Instr.Strings (readKeywords Instr.keywordsStrings) readWords
 
+readInt :: (Read a, Ord a, Num a) => Parser st a
 readInt = try $ readString >>= intCheck
   where
     intCheck s = case reads s of
       ((n,[]):_) | n >= 0 -> return n
       _                   -> mzero
 
+readBool :: Parser st Bool
 readBool = try $ readString >>= boolCheck
   where
     boolCheck "yes" = return True
@@ -83,14 +87,16 @@ readBool = try $ readString >>= boolCheck
     boolCheck "off" = return False
     boolCheck _     = mzero
 
+readString :: Parser st String
 readString = fmap concat readStrings
 
-
+readStrings :: Parser st [String]
 readStrings = chainLL1 notClosingBrk
   where
     notClosingBrk = tokenPrim notCl
     notCl t = let tk = showToken t in guard (tk /= "]") >> return tk
 
+readWords :: Parser st [String]
 readWords = shortHand </> chainLL1 word
   where
   shortHand = do
@@ -105,7 +111,6 @@ readInstrDrop = readInstrCommand -|- readInstrInt -|- readInstrBool
     readInstrCommand = fmap Instr.DropCommand (readKeywords Instr.keywordsCommand)
     readInstrInt = fmap Instr.DropInt (readKeywords Instr.keywordsInt)
     readInstrBool = fmap Instr.DropBool (readKeywords Instr.keywordsBool)
-
 
 readKeywords :: [(a, String)] -> Parser st a
 readKeywords keywords = try $
