@@ -4,9 +4,10 @@ Authors: Steffen Frerix (2017 - 2018)
 Message and Parse Error data type and core functions.
 -}
 
+{-# OPTIONS_GHC -Wall #-}
 
 module SAD.Parser.Error
-  ( ParseError,
+  ( ParseError(..),
     errorPos,
     newErrorMessage,
     newErrorUnknown,
@@ -22,8 +23,7 @@ module SAD.Parser.Error
 
 import SAD.Core.SourcePos
 
-import Data.List (nub, sort)
-import Debug.Trace
+import Data.List (nub)
 
 
 data Message
@@ -31,19 +31,20 @@ data Message
   | WfMsg {message :: [String]} -- Well-formedness message
   | Unknown deriving Show
 
+isUnknownMsg, isExpectMsg, isWfMsg :: Message -> Bool
 isUnknownMsg Unknown     = True
 isUnknownMsg _ = False
-
 isExpectMsg ExpectMsg{} = True
 isExpectMsg _ = False
-
 isWfMsg WfMsg{} = True
 isWfMsg _ = False
 
+newMessage, newUnExpect, newExpect :: String -> Message
 newMessage  msg = ExpectMsg {unExpect = "" , expect = []   , message = [msg]}
 newUnExpect tok = ExpectMsg {unExpect = tok, expect = []   , message = []   }
 newExpect   msg = ExpectMsg {unExpect = "" , expect = [msg], message = []   }
 
+newWfMsg :: [String] -> Message
 newWfMsg msgs = WfMsg msgs
 
 instance Enum Message where
@@ -119,16 +120,17 @@ firstSetMerge e1@(ParseError pos1 msg1) e2@(ParseError pos2 msg2) =
        | isExpectMsg msg2 -> e2
        | otherwise        -> e1 {peMsg = mergeMessage msg1 msg2}
 
+(<+>) :: ParseError -> ParseError -> ParseError
 (<+>) = firstSetMerge
 
-
+(<++>) :: ParseError -> ParseError -> ParseError
 (<++>) = mostImportantMerge
 
 setExpectMessage :: String -> ParseError -> ParseError
-setExpectMessage exp pe@(ParseError pos msg)
-  | isUnknownMsg msg = ParseError pos $ newExpect exp
+setExpectMessage expMsg pe@(ParseError pos msg)
+  | isUnknownMsg msg = ParseError pos $ newExpect expMsg
   | isWfMsg      msg = pe
-  | otherwise        = ParseError pos $ msg {expect = [exp]}
+  | otherwise        = ParseError pos $ msg {expect = [expMsg]}
 
 unexpectError :: String -> SourcePos -> ParseError
 unexpectError uex pos = newErrorMessage (newUnExpect uex) pos
