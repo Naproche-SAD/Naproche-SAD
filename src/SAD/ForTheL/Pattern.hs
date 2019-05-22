@@ -6,6 +6,8 @@ Pattern parsing and pattern state management.
 
 {-# LANGUAGE FlexibleContexts #-}
 
+{-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
+
 module SAD.ForTheL.Pattern where
 
 
@@ -201,7 +203,7 @@ unnamedNotion tvr = (ntn <|> fun) </> (newSymbPattern tvr >>= equ)
       return (zEqu v $ zTrm newId ("a " ++ t) vs, (trName v, trPosition v))
     equ t = do v <- hidden; return (zEqu (pVar v) t, v)
 
-
+newSymbPattern :: FTL Formula -> FTL Formula
 newSymbPattern tvr = left -|- right
   where
     left = do
@@ -227,13 +229,13 @@ ptTail lxm tvr = do
   (ls, vs) <- opt ([], []) $ ptHead lxm tvr
   return ("# " ++ ls, v:vs)
 
-
+ptName :: FTL String -> FTL Formula -> FTL ([Char], [Formula])
 ptName lxm tvr = do
   l <- unwords <$> chain lxm; n <- nam
   (ls, vs) <- opt ([], []) $ ptHead lxm tvr
   return (l ++ " . " ++ ls, n:vs)
 
-
+ptNoName :: FTL String -> FTL Formula -> FTL ([Char], [Formula])
 ptNoName lxm tvr = do
   l <- unwords <$> chain lxm; n <- hid
   (ls, vs) <- opt ([], []) $ ptShort lxm tvr
@@ -241,7 +243,7 @@ ptNoName lxm tvr = do
   where
     --ptShort is a kind of buffer that ensures that a variable does not directly
     --follow the name of the notion
-    ptShort lxm tvr = do
+    ptShort lxm _tvr = do
       l <- lxm; (ls, vs) <- ptTail lxm tvr
       return (l ++ ' ' : ls, vs)
 
@@ -249,38 +251,48 @@ ptNoName lxm tvr = do
 
 -- In-pattern lexemes and variables
 
+wlexem :: Parser FState [Char]
 wlexem = do
   l <- wlx
   guard $ all isAlpha l
   return $ map toLower l
 
+slexem :: Parser FState String
 slexem = slex -|- wlx
   where
     slex = tokenPrim isSymb
     isSymb t =
-      let tk = showToken t; ltk = map toLower tk
+      let tk  = showToken t
+          -- TODO: this is unused, is this a bug?
+          -- ltk = map toLower tk
       in  case tk of
             [c] -> guard (c `elem` symChars) >> return tk
             _   -> Nothing
 
+wlx :: Parser FState String
 wlx = failing nvr >> tokenPrim isWord
   where
     isWord t =
-      let tk = showToken t; ltk = map toLower tk
+      let tk  = showToken t
+          ltk = map toLower tk
       in guard (all isAlphaNum tk && ltk `notElem` keylist) >> return tk
     keylist = ["a","an","the","is","are","be"]
 
+nvr :: FTL Formula
 nvr = do
   v <- var; dvs <- getDecl; tvs <- MS.gets tvrExpr
   guard $ fst v `elem` dvs || any (elem (fst v) . fst) tvs
   return $ pVar v
 
+avr :: FTL Formula
 avr = do
   v <- var; guard $ null $ tail $ tail $ fst v
   return $ pVar v
 
+nam :: FTL Formula
 nam = do
   n <- fmap (const Top) nvr </> avr
   guard $ isVar n ; return n
 
+hid :: MS.MonadState FState f => f Formula
 hid = fmap pVar hidden
