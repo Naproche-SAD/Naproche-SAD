@@ -33,13 +33,16 @@ data Token =
   Token {
     tokenText :: String,
     tokenPos :: SourcePos,
-    hasPrecedingWhiteSpace :: Bool,
+    precedingWhiteSpace :: Bool,
     tokenProper :: Bool} |
   EOF {tokenPos :: SourcePos}
 
-makeToken :: String -> SourcePos -> Bool -> Bool -> Token
-makeToken s pos ws proper =
-  Token s (rangePos (pos, advancesPos pos s)) ws proper
+-- TODO: avoid boolean blindness?
+
+--data IsWhitespace = Whitespace | NotWhitespace
+--data IsProper = Proper | NotProper
+
+
 
 tokenEndPos :: Token -> SourcePos
 tokenEndPos tok@Token{} = advancesPos (tokenPos tok) (tokenText tok)
@@ -61,32 +64,25 @@ properToken EOF {} = True
 noTokens :: [Token]
 noTokens = [EOF noPos]
 
-
--- tokenize
-
 tokenize :: SourcePos -> String -> [Token]
-tokenize start = posToken start False
-  where
-    -- The boolean indicates if the token is whitespace or not.
-    posToken :: SourcePos -> Bool -> String -> [Token]
+tokenize start = tokenizeWith start False
 
-    posToken pos ws s
-      | not (null lexem) =
-          makeToken lexem pos ws True : posToken (advancesPos pos lexem) False rest
-      where (lexem, rest) = span isLexem s
-
-    posToken pos _ s
-      | not (null white) = posToken (advancesPos pos white) True rest
-      where (white, rest) = span isSpace s
-
-    posToken pos ws s@('#':_) =
-      makeToken comment pos False False : posToken (advancesPos pos comment) ws rest
-      where (comment, rest) = break (== '\n') s
-
-    posToken pos ws (c:cs) =
-      makeToken [c] pos ws True : posToken (advancePos pos c) False cs
-
-    posToken pos _ [] = [EOF pos]
+-- The boolean indicates if the token is whitespace or not.
+tokenizeWith :: SourcePos -> Bool -> String -> [Token]
+tokenizeWith pos ws s
+  | not (null lexem) =
+      Token lexem pos ws True : tokenizeWith (advancesPos pos lexem) False rest
+  where (lexem, rest) = span isLexem s
+-- skip whitespace and tell the next token if there was preceding whitespace.
+tokenizeWith pos _ws s
+  | not (null white) = tokenizeWith (advancesPos pos white) True rest
+  where (white, rest) = span isSpace s
+tokenizeWith pos ws s@('#':_) =
+  Token comment pos False False : tokenizeWith (advancesPos pos comment) ws rest
+  where (comment, rest) = break (== '\n') s
+tokenizeWith pos ws (c:cs) =
+  Token [c] pos ws True : tokenizeWith (advancePos pos c) False cs
+tokenizeWith pos _ws [] = [EOF pos]
 
 isLexem :: Char -> Bool
 isLexem c =
@@ -110,7 +106,7 @@ tokenReports _ = []
 composeTokens :: [Token] -> String
 composeTokens [] = ""
 composeTokens (t:ts) =
-  let ws = if hasPrecedingWhiteSpace t then " " else ""
+  let ws = if precedingWhiteSpace t then " " else ""
   in  ws ++ showToken t ++ composeTokens ts
 
 isEOF :: Token -> Bool
