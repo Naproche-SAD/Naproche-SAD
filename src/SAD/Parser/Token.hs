@@ -77,7 +77,7 @@ tokenizeWith pos ws s
 tokenizeWith pos _ws s
   | not (null white) = tokenizeWith (advancesPos pos white) True rest
   where (white, rest) = span isSpace s
-tokenizeWith pos ws s@('#':_) =
+tokenizeWith pos ws s@('%':_) =
   Token comment pos False False : tokenizeWith (advancesPos pos comment) ws rest
   where (comment, rest) = break (== '\n') s
 tokenizeWith pos ws (c:cs) =
