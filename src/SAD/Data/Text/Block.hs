@@ -62,7 +62,7 @@ makeBlock form body kind name link pos toks =
 text :: Block -> String
 text Block {tokens} = composeTokens tokens
 
-{- All possible types that a ForThel block can have. -}
+{- All possible types that a ForTheL block can have. -}
 data Section =
   Definition | Signature | Axiom       | Theorem | CaseHypothesis  |
   Assumption | Selection | Affirmation | Posit   | LowDefinition
