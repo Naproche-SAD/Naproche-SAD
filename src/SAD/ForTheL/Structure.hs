@@ -115,7 +115,7 @@ beginSig, beginDef, beginAxiom, beginTheorem :: FTL String
 beginSig    = header ["signature"]
 beginDef     = header ["definition"]
 beginAxiom   = header ["axiom"]
-beginTheorem = header ["proposition"]
+beginTheorem = header ["proposition", "lemma", "theorem"]
 
 
 -- low-level
