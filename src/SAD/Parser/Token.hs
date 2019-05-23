@@ -66,6 +66,9 @@ noTokens = [EOF noPos]
 tokenize :: SourcePos -> String -> [Token]
 tokenize start = posToken start False
   where
+    -- The boolean indicates if the token is whitespace or not.
+    posToken :: SourcePos -> Bool -> String -> [Token]
+
     posToken pos ws s
       | not (null lexem) =
           makeToken lexem pos ws True : posToken (advancesPos pos lexem) False rest
@@ -82,7 +85,7 @@ tokenize start = posToken start False
     posToken pos ws (c:cs) =
       makeToken [c] pos ws True : posToken (advancePos pos c) False cs
 
-    posToken pos _ _ = [EOF pos]
+    posToken pos _ [] = [EOF pos]
 
 isLexem :: Char -> Bool
 isLexem c = isAscii c && isAlphaNum c || c == '_'
