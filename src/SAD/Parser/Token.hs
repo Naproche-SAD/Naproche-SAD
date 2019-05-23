@@ -5,6 +5,7 @@ Tokenization of input.
 -}
 
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE InstanceSigs #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
