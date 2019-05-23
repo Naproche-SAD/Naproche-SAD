@@ -32,7 +32,7 @@ data Token =
   Token {
     tokenText :: String,
     tokenPos :: SourcePos,
-    tokenWhiteSpace :: Bool,
+    hasPrecedingWhiteSpace :: Bool,
     tokenProper :: Bool} |
   EOF {tokenPos :: SourcePos}
 
@@ -88,8 +88,12 @@ tokenize start = posToken start False
     posToken pos _ [] = [EOF pos]
 
 isLexem :: Char -> Bool
-isLexem c = isAscii c && isAlphaNum c || c == '_'
-
+isLexem c =
+  isAscii c && isAlphaNum c || 
+  c `elem` ['α'..'ω'] ||
+  c `elem` ['Α'..'Ω'] ||
+  c `elem` ['ℵ'..'ℸ'] ||
+  c == '_'
 
 -- markup reports
 
@@ -105,7 +109,7 @@ tokenReports _ = []
 composeTokens :: [Token] -> String
 composeTokens [] = ""
 composeTokens (t:ts) =
-  let ws = if tokenWhiteSpace t then " " else ""
+  let ws = if hasPrecedingWhiteSpace t then " " else ""
   in  ws ++ showToken t ++ composeTokens ts
 
 isEOF :: Token -> Bool
@@ -118,5 +122,6 @@ isEOF _     = False
 -- Show instances
 
 instance Show Token where
+  showsPrec :: Int -> Token -> ShowS
   showsPrec _ (Token s p _ _) = showString s . shows p
-  showsPrec _ _ = showString ""
+  showsPrec _ EOF{} = showString ""
