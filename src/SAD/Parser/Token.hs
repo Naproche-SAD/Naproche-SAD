@@ -55,7 +55,7 @@ tokensRange toks =
 
 showToken :: Token -> String
 showToken t@Token{} = tokenText t
-showToken EOF{} = "end of input"
+showToken EOF{} = "EOF"
 
 properToken :: Token -> Bool
 properToken Token {tokenProper} = tokenProper
@@ -86,7 +86,7 @@ tokenizeWith pos _ws [] = [EOF pos]
 
 isLexem :: Char -> Bool
 isLexem c =
-  isAscii c && isAlphaNum c || 
+  isAscii c && isAlphaNum c ||
   c `elem` ['α'..'ω'] ||
   c `elem` ['Α'..'Ω'] ||
   c `elem` ['ℵ'..'ℸ'] ||
