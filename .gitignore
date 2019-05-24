@@ -3,6 +3,7 @@
 *.swp
 *~
 Naproche-SAD.cabal
+Setup.hs
 *.synctex.gz
 *.aux
 *.fdb_latexmk
