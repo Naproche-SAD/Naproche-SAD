@@ -1,7 +1,7 @@
 module TokenSpec where
 
 import SAD.Parser.Token
-import SAD.Core.SourcePos
+import SAD.Core.SourcePos (noPos)
 
 import Test.Hspec
 
