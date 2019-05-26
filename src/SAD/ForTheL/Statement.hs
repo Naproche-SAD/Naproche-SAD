@@ -404,7 +404,7 @@ symbSetNotation = cndSet </> finSet
     cndSet = exbrc $ do
       (tag, c, t) <- sepFrom; st <- smTokenOf "|" >> statement;
       vs <- freeVarPositions t; vsDecl <- mapM makeDecl vs;
-      nm <- if isVar t then return $ (trName t, trPosition t) else hidden
+      nm <- if isVar t then return (trName t, trPosition t) else hidden
       return (\tr -> tag $ c tr `blAnd` mbEqu vsDecl tr t st, nm)
 
     mbEqu _ tr Var{trName = v} = subst tr v
@@ -425,7 +425,7 @@ sepFrom = ntnSep -|- setSep -|- noSep
 elementCnd :: FTL (Formula -> Formula)
 elementCnd = setTerm </> fmap fst symbSetNotation
   where
-    setTerm = sTerm >>= return . flip zElem
+    setTerm = flip zElem `fmap` sTerm
 
 -- -- functions
 
@@ -445,7 +445,7 @@ lambdaBody = label "function definition" $ paren $ cases <|> chooseInTerm
 cases :: FTL (Formula -> Formula)
 cases = do
   cas <- ld_case `sepByLL1` smTokenOf ","
-  return $ \fx -> foldr1 And $ map ((&) fx) cas
+  return $ \fx -> foldr1 And (map (fx &) cas)
   where
     ld_case = do
       optLL1 () $ wdToken "case"; condition <- statement; arrow
@@ -476,10 +476,14 @@ chooseInTerm = do
 
 lambda :: FTL (Formula -> Formula)
 lambda = do
-  (t, df_head, dom) <- ld_head; vs <- freeVars t; df <- addDecl vs lambdaBody
-  return $ \f -> zFun f `And` Tag Domain (dom f) `And` (df_head f $ df $ zApp f t)
+  (t, df_head, dom) <- lambdaHead
+  vs <- freeVars t
+  df <- addDecl vs lambdaBody
+  let fun f = zFun f `And` Tag Domain (dom f) `And` df_head f (df (zApp f t))
+  return fun
   where
-    ld_head = finalDot $ smTokenOf "\\" >> lambdaIn
+    lambdaHead :: FTL (Formula, Formula -> Formula -> Formula, Formula -> Formula)
+    lambdaHead = finalDot (smTokenOf "\\" >> lambdaIn)
 
 pair :: FTL Formula
 pair = sVar </> pr

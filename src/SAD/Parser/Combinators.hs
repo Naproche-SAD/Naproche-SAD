@@ -17,7 +17,7 @@ import SAD.Parser.Primitives
 import Data.List (uncons)
 
 import Control.Monad
-import Data.Maybe (isJust, fromJust)
+import Data.Maybe (isJust, isNothing, fromJust)
 import Debug.Trace
 
 
@@ -246,7 +246,7 @@ wellFormedCheck check p = Parser $ \st ok cerr eerr ->
         eerr $ newErrorMessage (newWfMsg $ nwf $ eok ++ cok) pos
   in  runParser p st pok cerr eerr
   where
-    wf  = filter (not . isJust . check . prResult)
+    wf  = filter (isNothing . check . prResult)
     nwf = map fromJust . filter isJust . map (check . prResult)
 
 
@@ -286,7 +286,7 @@ errorTrace parserLabel shw p = Parser $ \st ok cerr eerr ->
         neerr err = trace ("error trace (empty)   : " ++ parserLabel ++ "\n" ++  tabString (show err)) $ eerr err
     in  runParser p st nok ncerr neerr
     where
-      tabString = unlines . map ((++) "   ") . lines
+      tabString = unlines . map ("   " ++) . lines
 
 
 notEof :: Parser st ()

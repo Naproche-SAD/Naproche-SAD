@@ -58,7 +58,7 @@ defNotion = do
     defn = do
       (n, u) <- newNotion; isOrEq; (q, f) <- anotion
       let v = pVar u; fn = replace v (trm n)
-      h <- (fn . q) <$> dig f [v]
+      h <- (fn . q) `fmap` dig f [v]
       return ((n,h),u)
 
     isOrEq = wdToken "=" <|> isEq
@@ -83,7 +83,7 @@ sigNotion = do
     sig = do
       (n, u) <- newNotion; is; (q, f) <- anotion -|- noInfo
       let v = pVar u; fn = replace v (trm n)
-      h <- fmap (fn . q) $ dig f [v]
+      h <- (fn . q) `fmap` dig f [v]
       return ((n,h),u)
 
     noInfo =
@@ -153,7 +153,7 @@ pretypeVariable = do
       pos1 <- getPos; markupToken synonymLet "let"; vs@(_:_) <- varlist; standFor;
       (g, pos2) <- wellFormedCheck (overfree [] . fst) holedNotion
       let pos = rangePos (pos1, pos2)
-      addPretypingReport pos $ map snd vs; 
+      addPretypingReport pos $ map snd vs;
       return (pos, (vs, ignoreNames g))
 
     holedNotion = do
@@ -180,7 +180,8 @@ introduceMacro = do
     ntn = wellFormedCheck (funVars . snd) $ do
       (n, u) <- unnamedNotion avr
       standFor; (q, f) <- anotion; (_, pos2) <- dot
-      h <- fmap q $ dig f [pVar u]; return (pos2, (n, h))
+      h <- q `fmap` dig f [pVar u]
+      return (pos2, (n, h))
 
 ignoreNames :: Formula -> Formula
 ignoreNames (All dcl f) = All dcl {Decl.name = ""} $ ignoreNames f

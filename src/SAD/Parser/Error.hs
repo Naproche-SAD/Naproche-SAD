@@ -152,8 +152,8 @@ showErrorMessage :: String -> String -> String -> String -> Message -> String
 showErrorMessage msgOr msgUnknown msgExpecting msgUnExpected msg
   | isUnknownMsg msg = msgUnknown
   | isWfMsg      msg = '\n': (showMany "" $ message msg)
-  | otherwise = concat $ map ("\n"++) $ clean $
-      [showUnExpect,showExpect,showMessages]
+  | otherwise = concatMap ("\n" ++)
+      (clean [showUnExpect, showExpect, showMessages])
   where
     unExpected = unExpect msg
     expected   = expect   msg

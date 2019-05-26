@@ -135,18 +135,18 @@ primPrd p (pt, fm) = do
 
 primMultiVer, primMultiAdj, primMultiUnAdj :: FTL UTerm -> FTL UTerm
 
-primMultiVer = getExpr verExpr . prim_ml_prd
-primMultiAdj = getExpr adjExpr . prim_ml_prd
-primMultiUnAdj = getExpr (filter (unary . fst) . adjExpr) . prim_ml_prd
+primMultiVer = getExpr verExpr . primMultiPrd
+primMultiAdj = getExpr adjExpr . primMultiPrd
+primMultiUnAdj = getExpr (filter (unary . fst) . adjExpr) . primMultiPrd
   where
     unary (Vr : pt) = Vr `notElem` pt
     unary (_  : pt) = unary pt
     unary _ = True
 
-prim_ml_prd :: Parser st (b1 -> b1, Formula)
+primMultiPrd :: Parser st (b1 -> b1, Formula)
             -> ([Patt], [Formula] -> b2)
             -> Parser st (b1 -> b1, b2)
-prim_ml_prd p (pt, fm) = do
+primMultiPrd p (pt, fm) = do
   (q, ts) <- mlPatt p pt
   return (q, fm $ zHole:zSlot:ts)
 
@@ -276,7 +276,7 @@ mlPatt _ _ = mzero
 
 -- parses a notion: follow the pattern to the name place, record names,
 -- then keep following the pattern
-ntPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [([Char], SourcePos)], [a])
+ntPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [(String, SourcePos)], [a])
 ntPatt p (Wd l : ls) = patternWdTokenOf l >> ntPatt p ls
 ntPatt p (Nm : ls) = do
   vs <- namlist
@@ -286,7 +286,7 @@ ntPatt _ _ = mzero
 
 -- parse an "of"-notion: follow the pattern to the notion name, then check that
 -- "of" follows the name followed by a variable that is not followed by "and"
-ofPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [([Char], SourcePos)], [a])
+ofPatt :: FTL (b -> b, a) -> [Patt] -> FTL (b -> b, [(String, SourcePos)], [a])
 ofPatt p (Wd l : ls) = patternWdTokenOf l >> ofPatt p ls
 ofPatt p (Nm : Wd l : Vr : ls) = do
   guard $ elem "of" l; vs <- namlist
@@ -300,7 +300,7 @@ ofPatt _ _ = mzero
 cmPatt :: FTL (b -> b, a1)
        -> FTL (b -> c, [a2])
        -> [Patt]
-       -> FTL (b -> c, [([Char], SourcePos)], [a2], [a1])
+       -> FTL (b -> c, [(String, SourcePos)], [a2], [a1])
 cmPatt p s (Wd l:ls) = patternWdTokenOf l >> cmPatt p s ls
 cmPatt p s (Nm : Wd l : Vr : ls) = do
   guard $ elem "of" l; vs <- namlist; patternWdTokenOf l
@@ -313,17 +313,17 @@ cmPatt _ _ _ = mzero
 -- an auxiliary pattern parser that checks that we are not dealing wiht an "and"
 -- wdToken and then continues to follow the pattern
 naPatt :: Parser st (b -> b, a) -> [Patt] -> Parser st (b -> b, [a])
-naPatt p (Wd l : ls) = guard (notElem "and" l) >> patternWdTokenOf l >> wdPatt p ls
+naPatt p (Wd l : ls) = guard ("and" `notElem` l) >> patternWdTokenOf l >> wdPatt p ls
 naPatt p ls = wdPatt p ls
 
 
 
 -- Variables
 
-namlist :: FTL [([Char], SourcePos)]
+namlist :: FTL [(String, SourcePos)]
 namlist = varlist -|- fmap (:[]) hidden
 
-varlist :: FTL [([Char], SourcePos)]
+varlist :: FTL [(String, SourcePos)]
 varlist = do
   vs <- var `sepBy` wdToken ","
   nodups $ map fst vs ; return vs
@@ -332,13 +332,13 @@ nodups :: Monad f => [String] -> f ()
 nodups vs = unless ((null :: [b] -> Bool) $ duplicateNames vs) $
   fail $ "duplicate names: " ++ show vs
 
-hidden :: MS.MonadState FState m => m ([Char], SourcePos)
+hidden :: MS.MonadState FState m => m (String, SourcePos)
 hidden = do
   n <- MS.gets hiddenCount
   MS.modify $ \st -> st {hiddenCount = succ n}
   return ('h':show n, noPos)
 
-var :: FTL ([Char], SourcePos)
+var :: FTL (String, SourcePos)
 var = do
   pos <- getPos
   v <- satisfy (\s -> all isAlphaNum s && isAlpha (head s))
@@ -419,9 +419,9 @@ over vs f = foldF (over vs) f
 
 bvrs :: [String] -> String -> Formula -> [String]
 bvrs vs v f
-  | elem v vs = [v]
-  | null v    = over vs f
-  | otherwise = over (v:vs) f
+  | v `elem` vs = [v]
+  | null v      = over vs f
+  | otherwise   = over (v:vs) f
 
 
 --- macro expressions

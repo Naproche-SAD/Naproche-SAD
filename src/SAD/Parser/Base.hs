@@ -117,9 +117,9 @@ tryParses f ok cerr eerr err eok cok = accumE err [] [] [] [] eok
             accumC acc_err acc_eok acc_cok (err':acc_cerr) acc_eerr rs
       in  runParser (f a) st' fok fcerr feerr
     accumC acc_err acc_eok acc_cok acc_cerr acc_eerr []
-      | (not $ null acc_eok)  || (not $ null acc_cok)  = ok acc_err (reverse acc_eok) (reverse acc_cok)
-      | (not $ null acc_eerr) = eerr $ foldl' (<++>) err $ acc_eerr ++ acc_cerr
-      | (not $ null acc_cerr) = cerr $ foldl' (<++>) err $ acc_cerr
+      | not (null acc_eok)  || not (null acc_cok)  = ok acc_err (reverse acc_eok) (reverse acc_cok)
+      | not (null acc_eerr) = eerr (foldl' (<++>) err (acc_eerr ++ acc_cerr))
+      | not (null acc_cerr) = cerr (foldl' (<++>) err acc_cerr)
       | otherwise = error "tryParses: parser has empty result"
 
 

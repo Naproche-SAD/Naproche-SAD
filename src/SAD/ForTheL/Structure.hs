@@ -168,11 +168,11 @@ pretyping bl = do
 
 pret :: [String] -> [TVar] -> Block -> FTL Block
 pret dvs tvs bl = do
-  untyped <- mapM makeDecl $ freePositions (blockVars ++ dvs) (Block.formula bl)
+  untyped <- mapM makeDecl (freePositions (blockVars ++ dvs) (Block.formula bl))
   let typing =
         if null untyped
         then Top
-        else foldl1 And $ map (`typeWith` tvs) (map Decl.name untyped)
+        else foldl1 And (map ((`typeWith` tvs) . Decl.name) untyped)
   return $ assumeBlock {Block.formula = typing, Block.declaredVariables = untyped}
   where
     blockVars = Block.declaredNames bl
@@ -264,7 +264,7 @@ defVars dvs f
     errorMsg = "extra variables in the guard: " ++ varString
     varString = concatMap ((' ' :) . showVar) unusedVars
 
-llDefnVars :: [String] -> Formula -> Maybe [Char]
+llDefnVars :: [String] -> Formula -> Maybe String
 llDefnVars dvs f
   | x `elem` dvs = Just $ "Defined variable is already in use: " ++ showVar x
   | otherwise = affirmVars (x : dvs) f

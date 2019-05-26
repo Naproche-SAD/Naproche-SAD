@@ -229,13 +229,13 @@ ptTail lxm tvr = do
   (ls, vs) <- opt ([], []) $ ptHead lxm tvr
   return ("# " ++ ls, v:vs)
 
-ptName :: FTL String -> FTL Formula -> FTL ([Char], [Formula])
+ptName :: FTL String -> FTL Formula -> FTL (String, [Formula])
 ptName lxm tvr = do
   l <- unwords <$> chain lxm; n <- nam
   (ls, vs) <- opt ([], []) $ ptHead lxm tvr
   return (l ++ " . " ++ ls, n:vs)
 
-ptNoName :: FTL String -> FTL Formula -> FTL ([Char], [Formula])
+ptNoName :: FTL String -> FTL Formula -> FTL (String, [Formula])
 ptNoName lxm tvr = do
   l <- unwords <$> chain lxm; n <- hid
   (ls, vs) <- opt ([], []) $ ptShort lxm tvr
@@ -251,7 +251,7 @@ ptNoName lxm tvr = do
 
 -- In-pattern lexemes and variables
 
-wlexem :: Parser FState [Char]
+wlexem :: Parser FState String
 wlexem = do
   l <- wlx
   guard $ all isAlpha l
