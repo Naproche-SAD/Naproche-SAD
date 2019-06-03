@@ -22,7 +22,7 @@ module SAD.Parser.Token
     noTokens)
   where
 
-import Data.Char
+import Data.Char (isSpace, isAscii, isAlphaNum)
 
 import SAD.Core.SourcePos
 import qualified SAD.Core.Message as Message
@@ -36,12 +36,6 @@ data Token =
     precedingWhiteSpace :: Bool,
     tokenProper :: Bool} |
   EOF {tokenPos :: SourcePos}
-
--- TODO: avoid boolean blindness?
-
---data IsWhitespace = Whitespace | NotWhitespace
---data IsProper = Proper | NotProper
-
 
 
 tokenEndPos :: Token -> SourcePos
