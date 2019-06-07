@@ -15,6 +15,7 @@ module SAD.Parser.Token
     tokensRange,
     showToken,
     properToken,
+    mathToken,
     tokenize,
     tokenReports,
     composeTokens,
@@ -34,7 +35,8 @@ data Token =
     tokenText :: String,
     tokenPos :: SourcePos,
     precedingWhiteSpace :: Bool,
-    tokenProper :: Bool} |
+    tokenProper :: Bool,
+    mathMode :: Bool } |
   EOF {tokenPos :: SourcePos}
 
 
@@ -55,28 +57,53 @@ properToken :: Token -> Bool
 properToken Token {tokenProper} = tokenProper
 properToken EOF {} = True
 
+mathToken :: Token -> Bool
+mathToken Token {mathMode} = mathMode
+mathToken EOF {} = False
+
 noTokens :: [Token]
 noTokens = [EOF noPos]
 
 tokenize :: SourcePos -> String -> [Token]
-tokenize start = tokenizeWith start False
+tokenize start = tokenizeWith start False False
 
--- The boolean indicates if the token is whitespace or not.
-tokenizeWith :: SourcePos -> Bool -> String -> [Token]
-tokenizeWith pos ws s
-  | not (null lexem) =
-      Token lexem pos ws True : tokenizeWith (advancesPos pos lexem) False rest
-  where (lexem, rest) = span isLexem s
--- skip whitespace and tell the next token if there was preceding whitespace.
-tokenizeWith pos _ws s
-  | not (null white) = tokenizeWith (advancesPos pos white) True rest
-  where (white, rest) = span isSpace s
-tokenizeWith pos ws s@('%':_) =
-  Token comment pos False False : tokenizeWith (advancesPos pos comment) ws rest
-  where (comment, rest) = break (== '\n') s
-tokenizeWith pos ws (c:cs) =
-  Token [c] pos ws True : tokenizeWith (advancePos pos c) False cs
-tokenizeWith pos _ws [] = [EOF pos]
+-- The first boolean indicates if the token is whitespace or not.
+-- The second boolean indicates if the token is within math mode.
+tokenizeWith :: SourcePos -> Bool -> Bool -> String -> [Token]
+
+-- This branch succeeds if the first character is a valid word lexeme character.
+tokenizeWith pos ws math s | not (null lexem) = tok : toks
+    where
+      tok  = Token lexem pos ws True math
+      toks = tokenizeWith (advancesPos pos lexem) False math rest
+      (lexem, rest) = span isLexem s
+
+-- Skip whitespace and tell the next token that there was preceding whitespace.
+tokenizeWith pos _ws math s | not (null white) = toks
+  where
+    toks = tokenizeWith (advancesPos pos white) True math rest
+    (white, rest) = span isSpace s
+
+-- Toggle math mode.
+tokenizeWith pos ws math ('$':rest) = toks
+  where
+    toks = tokenizeWith (advancePos pos '$') ws (not math) rest
+
+-- Parse a comment, which yields a non-proper Token.
+tokenizeWith pos ws math s@('%':_) = tok : toks
+  where
+    tok  = Token comment pos False False False
+    toks = tokenizeWith (advancesPos pos comment) ws math rest
+    (comment, rest) = break (== '\n') s
+
+-- All other characters are tokenized as one-character symbols.
+tokenizeWith pos ws math (c:cs) = tok : toks
+  where
+    tok  = Token [c] pos ws True math
+    toks = tokenizeWith (advancePos pos c) False math cs
+
+-- Then end of the string is marked with an EOF token.
+tokenizeWith pos _ws _math [] = [EOF pos]
 
 isLexem :: Char -> Bool
 isLexem c =
@@ -114,5 +141,6 @@ isEOF _     = False
 
 instance Show Token where
   showsPrec :: Int -> Token -> ShowS
-  showsPrec _ (Token s p _ _) = showString s . shows p
-  showsPrec _ EOF{} = showString ""
+  showsPrec _ tok = case tok of
+    Token s pos _white _proper _math -> showString s . shows pos
+    EOF{} -> showString ""
