@@ -68,6 +68,7 @@ jumpWith jump p = Parser $ \st ok cerr err ->
 satisfy :: (String -> Bool) -> Parser st String
 satisfy pr = tokenPrim prTest
   where
+    prTest :: Token -> Maybe String
     prTest tk = let s = showToken tk in guard (pr s) >> return s
 
 ---- check if the current token is a word
