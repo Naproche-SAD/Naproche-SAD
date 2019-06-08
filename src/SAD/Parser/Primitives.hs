@@ -69,9 +69,17 @@ satisfy :: (String -> Bool) -> Parser st String
 satisfy pr = tokenPrim prTest
   where
     prTest :: Token -> Maybe String
-    prTest tk = let s = showToken tk in case (pr s) of
-      True  -> Just s
-      False -> Nothing
+    prTest tk =
+      let s = showToken tk
+      in  if pr s then Just s else Nothing
+
+satisfyMath :: (String -> Bool) -> Parser st String
+satisfyMath pr = tokenPrim prTest
+  where
+    prTest :: Token -> Maybe String
+    prTest tk =
+      let s = showToken tk
+      in  if (mathToken tk && pr s) then Just s else Nothing
 
 ---- check if the current token is a word
 word :: Parser st String
